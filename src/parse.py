@@ -3,7 +3,7 @@
 # Login: xprochp00
 
 import sys
-from lark import Lark, LarkError, UnexpectedToken, UnexpectedCharacters, UnexpectedInput
+from lark import Lark, LarkError, UnexpectedToken, UnexpectedCharacters, UnexpectedEOF
 
 try:
     input_program = sys.stdin.read()
@@ -30,12 +30,9 @@ block_par: COL_ID block_par |
 block_stat: ID ":" "=" expr "." block_stat | 
 
 expr: expr_base expr_tail
-expr_tail: ID
-expr_tail: expr_sel
+expr_tail: ID | expr_sel
 expr_sel: ID_COL expr_base expr_sel |
-expr_base: INT | STR | ID | CID
-expr_base: block
-expr_base: "(" expr ")"
+expr_base: INT | STR | ID | CID | block | "(" expr ")"
 
 CID: /[A-Z][a-zA-Z0-9]*/
 
@@ -43,8 +40,8 @@ ID: /[a-z|_][a-zA-Z0-9_]*/
 ID_COL: /[a-z|_][a-zA-Z0-9_]*:/
 COL_ID: /:[a-z|_][a-zA-Z0-9_]*/
 
-INT: /[+|-]*[1-9][0-9]*/
-STR:/'[^'^\]*'/
+INT: /[+-]?[1-9][0-9]*/
+STR: /'([^'\\]|\\[\'\\n])*'/x   # TODO
 
 COMMENT: /"[^"]*"/
 
@@ -54,22 +51,21 @@ COMMENT: /"[^"]*"/
 
 """
 
-parser = Lark(grammar)
+parser = Lark(grammar, lexer='basic', parser='lalr')
 
 try:
-    tree = parser.parse(input_program)
-    print(tree.pretty())
+    tree = parser.parse(input_program, start='start')
     
 except UnexpectedCharacters as e:
-    sys.stderr.write(f"Lexical error: {e}")
+    sys.stderr.write(f"Lexical Error: {e}")
     sys.exit(21)
     
-except UnexpectedToken as e:
-    sys.stderr.write(f"Syntactic error: {e}")
+except (UnexpectedToken, UnexpectedEOF) as e:
+    sys.stderr.write(f"Syntactic Error: {e}")
     sys.exit(22)
     
 except LarkError as e:
     sys.stderr.write(f"Lark Error: {e}")
     sys.exit(99)
     
-    
+exit(0)

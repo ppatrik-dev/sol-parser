@@ -19,11 +19,11 @@ def check_arguments():
     
     argc = len(sys.argv)
     
-    if argc == 2 and sys.argv[1] == "--help":
-        print(help_message)
+    if (argc == 2) and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
+        sys.stdout.write(help_message)
         sys.exit(0)
-    elif argc > 2:
-        print("Invalid arguments, use --help for usage information")
+    elif argc > 1:
+        sys.stderr.write("Invalid arguments, use --help for usage information")
         sys.exit(10)
     
 try:

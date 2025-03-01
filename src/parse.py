@@ -3,9 +3,31 @@
 # Login: xprochp00
 
 import sys
-from lark import Lark, LarkError, UnexpectedToken, UnexpectedCharacters, UnexpectedEOF
+from lark import (
+    Lark, LarkError, Transformer,
+    UnexpectedToken, UnexpectedCharacters, UnexpectedEOF,
+)
 
+def check_arguments():
+    help_message = """
+    The script (filter), reads the source code in SOL25 from the standard input, 
+    checks the lexical, syntactic and static semantic correctness of the code and writes 
+    XML representation of the program abstract syntactic tree to the standard output.
+    
+    usage:  python parse.py [--help]
+    """
+    
+    argc = len(sys.argv)
+    
+    if argc == 2 and sys.argv[1] == "--help":
+        print(help_message)
+        sys.exit(0)
+    elif argc > 2:
+        print("Invalid arguments, use --help for usage information")
+        sys.exit(10)
+    
 try:
+    check_arguments()
     input_program = sys.stdin.read()
     
 except IOError as e:
@@ -16,6 +38,7 @@ except Exception as e:
     sys.exit(11)
 
 grammar = """
+start: program
 
 program: class*
 class: "class" CID ":" CID "{" method* "}"
@@ -52,14 +75,13 @@ COMMENT: /"[^"]*"/
 %import common.WS
 %ignore WS
 %ignore COMMENT
-
 """
 
-parser = Lark(grammar, lexer='contextual', parser='lalr', start='program')
+parser = Lark(grammar, lexer='contextual', parser='lalr', start='start')
 
 try:
-    tree = parser.parse(input_program)
-    print(tree.pretty())
+    parse_tree = parser.parse(input_program)
+    print(parse_tree.pretty())
     
 except UnexpectedCharacters as e:
     sys.stderr.write(f"Lexical Error: {e}")
@@ -73,4 +95,3 @@ except LarkError as e:
     sys.stderr.write(f"Lark Error: {e}")
     sys.exit(99)
     
-exit(0)

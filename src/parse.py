@@ -37,9 +37,7 @@ except Exception as e:
     sys.stderr.write(f"Error: {e}")
     sys.exit(11)
 
-grammar = """
-start: program
-
+grammar = r"""
 program: class*
 class: "class" CID ":" CID "{" method* "}"
 method: selector block
@@ -48,7 +46,7 @@ selector: ID | ID_COL+
 
 block: "[" block_par* "|" block_stat* "]"
 block_par: COL_ID -> param
-block_stat: ID ":" "=" expr "." -> assign
+block_stat: ID ":=" expr "." -> assign
 
 expr: expr_base expr_tail
 expr_tail: ID -> no_param_sel
@@ -68,7 +66,7 @@ ID_COL: /[a-z|_][a-zA-Z0-9_]*:/
 COL_ID: /:[a-z|_][a-zA-Z0-9_]*/
 
 INT: /0|([+-]?[1-9][0-9]*)/
-STR: /'([^'\\]|\\[\'\\n])*'/x   # TODO
+STR: /'([^'\\]|\\['\\n])*'/
 
 COMMENT: /"[^"]*"/
 
@@ -77,7 +75,7 @@ COMMENT: /"[^"]*"/
 %ignore COMMENT
 """
 
-parser = Lark(grammar, lexer='contextual', parser='lalr', start='start')
+parser = Lark(grammar, lexer='contextual', parser='lalr', start='program')
 
 try:
     parse_tree = parser.parse(input_program)

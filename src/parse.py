@@ -8,6 +8,78 @@ from lark import (
     UnexpectedToken, UnexpectedCharacters, UnexpectedEOF,
 )
 
+class AST_Transformer(Transformer):
+    def program(self, args):
+        return {"program": args}
+    
+    def class_def(self, args):
+        name = args[0].value
+        parent = args[1].value
+        body = args[2:]
+        return {"type": "class", "name": name, "parent": parent, "body": body}
+        
+    def method(self, args):
+        return ({"type": "method"} | args[0] | args[1])
+    
+    def selector(self, args):
+        name = ""
+        for arg in args:
+            name += arg.value
+        return {"selector": name}
+        
+    def block(self, args):
+        parameters = []
+        for dct in args:
+            param = dct.get("param")
+            if param is not None:
+                parameters.append(param)
+        return {"block": {"parameters": parameters, "statements": args[len(parameters):]}}
+    
+    def param(self, args):
+        name = args[0].value
+        return {"param": name}    
+        
+    def assign(self, args):
+        lvalue = args[0].value
+        rvalue = args[1]
+        return {"type": "assign", "lvalue": lvalue, "rvalue": rvalue}
+    
+    def expr(self, args):
+        return ({"type": "expr"} | args[0] | args[1])
+    
+    def no_param_sel(self, args):
+        name = args[0].value
+        return {"type": "no_param_sel", "name": name}
+    
+    def message(self, args):
+        return {"message": args}
+    
+    def param_sel(self, args):
+        name = args[0].value
+        return {"type": "param_sel", "name": name, "param": args[1]}
+    
+    def integer(self, args):
+        value = args[0].value
+        return {"type": "integer", "value": value}
+    
+    def string(self, args):
+        value = args[0].value
+        return {"type": "string", "value": value}
+    
+    def obj_id(self, args):
+        name = args[0].value
+        return {"type": "obj", "name": name}
+    
+    def class_id(self, args):
+        name = args[0].value
+        return {"type": "class", "name": name}
+    
+    def block_expr(self, args):
+        return ({"type": "block_expr"} | args[0])
+    
+    def nested_expr(self, args):
+        return {"nested_expr": args[0]}
+    
 def check_arguments():
     help_message = """
     The script (filter), reads the source code in SOL25 from the standard input, 
@@ -25,7 +97,7 @@ def check_arguments():
     elif argc > 1:
         sys.stderr.write("Invalid arguments, use --help for usage information")
         sys.exit(10)
-    
+        
 try:
     check_arguments()
     input_program = sys.stdin.read()
@@ -38,8 +110,8 @@ except Exception as e:
     sys.exit(11)
 
 grammar = r"""
-program: class*
-class: "class" CID ":" CID "{" method* "}"
+program: class_def*
+class_def: "class" CID ":" CID "{" method* "}"
 method: selector block
 
 selector: ID | ID_COL+
@@ -54,7 +126,7 @@ expr_tail: ID -> no_param_sel
 expr_sel: ID_COL expr_base -> param_sel
 expr_base: INT -> integer 
         | STR -> string
-        | ID -> var_id
+        | ID -> obj_id
         | CID -> class_id
         | block -> block_expr
         | "(" expr ")" -> nested_expr
@@ -79,7 +151,7 @@ parser = Lark(grammar, lexer='contextual', parser='lalr', start='program')
 
 try:
     parse_tree = parser.parse(input_program)
-    print(parse_tree.pretty())
+    # print(parse_tree.pretty())
     
 except UnexpectedCharacters as e:
     sys.stderr.write(f"Lexical Error: {e}")
@@ -92,4 +164,7 @@ except (UnexpectedToken, UnexpectedEOF) as e:
 except LarkError as e:
     sys.stderr.write(f"Lark Error: {e}")
     sys.exit(99)
-    
+
+transformer = AST_Transformer()
+ast = transformer.transform(parse_tree)
+print(ast)

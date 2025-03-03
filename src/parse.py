@@ -85,17 +85,16 @@ class AST_Transformer(Transformer):
         return ({"type": "nested_expr"} | args[0])
 
 # Function searching for first program comment
-def get_first_comment(source_code):
+def get_first_comment(source_code) -> str | None:
     match = re.search(r'\"(.*?)\"', source_code)
-    comment = match.group(0)
     
-    if comment != None:
-        return comment[1:-1]
-    else:
+    if match is None:
         return None
+    else:
+        return match.group(0)[1:-1]
 
 # Function formating final XML output using 'dom.minidom' module
-def format_xml(root_elem: ET.Element):
+def format_xml(root_elem: ET.Element) -> str:
     xml_string = ET.tostring(root_elem, encoding="utf-8")
     parsed_dom = xml.dom.minidom.parseString(xml_string)
     xml_output = parsed_dom.toprettyxml(indent="  ", encoding="UTF-8").decode("utf-8")
@@ -103,10 +102,11 @@ def format_xml(root_elem: ET.Element):
     return xml_output.strip()
 
 # Function generating final XML representation of program AST
-def generate_xml(ast: dict):
-    global comment
-    
-    program_elem = ET.Element("program", language="SOL25", description=comment)
+def generate_xml(ast: dict, cmt: str) -> ET.Element:
+    if cmt == None:
+        program_elem = ET.Element("program", language="SOL25")
+    else:
+        program_elem = ET.Element("program", language="SOL25", description=cmt)
     
     classes = ast["program"]
     for cls in classes:
@@ -167,11 +167,12 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict):
     object_node = expression_node["object"]
     message_node = expression_node["message"]
 
-    nested_expr = object_node.get("expr")
-    if nested_expr == None:
-        ET.SubElement(expr_elem, object_node["type"], name=object_node["name"])
+    if object_node["type"] == "nested_expr":
+        generate_expression(expr_elem, object_node["expr"])
+    elif object_node["type"] == "block_expr":
+        generate_block(expr_elem, object_node["block"])
     else:
-        generate_expression(expr_elem, nested_expr)
+        ET.SubElement(expr_elem, object_node["type"], name=object_node["name"])
     
     if message_node[0]["type"] == "param_sel":
         for i in range(0, len(message_node)):
@@ -221,7 +222,6 @@ def check_arguments():
 try:
     check_arguments()
     input_program = sys.stdin.read()
-    comment = get_first_comment(input_program)
 
 # Handle IO error while reading input
 except IOError as e:
@@ -298,6 +298,14 @@ except LarkError as e:
 transformer = AST_Transformer()
 ast = transformer.transform(parse_tree)
 
+comment = get_first_comment(input_program)
+
 # Generating and printing final XML
-xml_root = generate_xml(ast)
-print(format_xml(xml_root))
+xml_root = generate_xml(ast, comment)
+print(format_xml(xml_root).replace(r"\n", "&nbsp;"))
+
+# import json
+# json_output = json.dumps(ast, indent=4)
+# print(json_output)
+
+sys.exit(0)

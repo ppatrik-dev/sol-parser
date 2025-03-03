@@ -8,6 +8,9 @@ from lark import (
     UnexpectedToken, UnexpectedCharacters, UnexpectedEOF,
 )
 
+# Creating AST trasformer using base class Transformer from Lark.
+# Defining transform functions for grammar rules to transform
+# Lark parse tree to AST representation similar to JSON
 class AST_Transformer(Transformer):
     def program(self, args):
         return {"program": args}
@@ -79,7 +82,8 @@ class AST_Transformer(Transformer):
     
     def nested_expr(self, args):
         return {"nested_expr": args[0]}
-    
+
+# Function checking program arguments and printing help message
 def check_arguments():
     help_message = """
     The script (filter), reads the source code in SOL25 from the standard input, 
@@ -97,18 +101,22 @@ def check_arguments():
     elif argc > 1:
         sys.stderr.write("Invalid arguments, use --help for usage information")
         sys.exit(10)
-        
+
 try:
     check_arguments()
     input_program = sys.stdin.read()
-    
+
+# Handle IO error while reading input
 except IOError as e:
     sys.stderr.write(f"IOError: {e}")
     sys.exit(11)
+
+# Handle other exceptions
 except Exception as e:
     sys.stderr.write(f"Error: {e}")
     sys.exit(11)
 
+# Define parsing grammar for Lark parser
 grammar = r"""
 program: class_def*
 class_def: "class" CID ":" CID "{" method* "}"
@@ -147,24 +155,28 @@ COMMENT: /"[^"]*"/
 %ignore COMMENT
 """
 
+# Create Lark parser, using 'contextual' lexer and 'lalr' parser starting from rule 'program'
 parser = Lark(grammar, lexer='contextual', parser='lalr', start='program')
 
 try:
     parse_tree = parser.parse(input_program)
-    # print(parse_tree.pretty())
-    
+
+# Handle Lexical errors with exit code 21
 except UnexpectedCharacters as e:
     sys.stderr.write(f"Lexical Error: {e}")
     sys.exit(21)
-    
+
+# Handle Syntactic errors with exit code 22
 except (UnexpectedToken, UnexpectedEOF) as e:
     sys.stderr.write(f"Syntactic Error: {e}")
     sys.exit(22)
-    
+
+# Handle other Lark errors with exit code 99    
 except LarkError as e:
     sys.stderr.write(f"Lark Error: {e}")
     sys.exit(99)
 
+# Using custom definied transformer for AST
 transformer = AST_Transformer()
 ast = transformer.transform(parse_tree)
 print(ast)

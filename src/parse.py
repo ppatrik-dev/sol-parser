@@ -2,11 +2,13 @@
 # Author: Patrik Prochazka
 # Login: xprochp00
 
-import sys
+import sys, re
 from lark import (
     Lark, LarkError, Transformer,
     UnexpectedToken, UnexpectedCharacters, UnexpectedEOF,
 )
+import xml.etree.ElementTree as ET
+import xml.dom.minidom
 
 # Creating AST trasformer using base class Transformer from Lark.
 # Defining transform functions for grammar rules to transform
@@ -83,6 +85,44 @@ class AST_Transformer(Transformer):
     def nested_expr(self, args):
         return {"nested_expr": args[0]}
 
+# Function searching for first program comment
+def get_first_comment(source_code):
+    match = re.search(r'\"(.*?)\"', source_code)
+    comment = match.group(0)
+    
+    if comment != None:
+        return comment[1:-1]
+    else:
+        return None
+
+# Function formating final XML output using 'dom.minidom' module
+def format_xml(root_elem: ET.Element):
+    xml_string = ET.tostring(root_elem, encoding="utf-8")
+    parsed = xml.dom.minidom.parseString(xml_string)
+    return parsed.toprettyxml(indent="  ", encoding="UTF-8").decode("utf-8")
+
+# Function generating final XML representation of program AST
+def generate_xml(ast: dict):
+    global comment
+    
+    program_elem = ET.Element("program", language="SOL25", description=comment)
+    
+    for cls in ast["program"]:
+        generate_class(program_elem, cls)
+    
+    return program_elem
+
+# Function generating class elements
+def generate_class(parent_elem: ET.Element, class_node: dict):
+    class_elem = ET.SubElement(parent_elem, class_node["type"], name=class_node["name"], parent=class_node["parent"])
+    
+    for mth in class_node["body"]:
+        generate_method(class_elem, mth)
+
+# Function generating method elements
+def generate_method(parent_elem: ET.Element, method_node: dict):
+    method_elem = ET.SubElement(parent_elem, method_node["type"], selector=method_node["selector"])
+  
 # Function checking program arguments and printing help message
 def check_arguments():
     help_message = """
@@ -105,6 +145,7 @@ def check_arguments():
 try:
     check_arguments()
     input_program = sys.stdin.read()
+    comment = get_first_comment(input_program)
 
 # Handle IO error while reading input
 except IOError as e:
@@ -179,4 +220,7 @@ except LarkError as e:
 # Using custom definied transformer for AST
 transformer = AST_Transformer()
 ast = transformer.transform(parse_tree)
-print(ast)
+
+# Generating and printing final XML
+xml_root = generate_xml(ast)
+print(format_xml(xml_root))

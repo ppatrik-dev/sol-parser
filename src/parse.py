@@ -38,7 +38,7 @@ class AST_Transformer(Transformer):
             param = dct.get("param")
             if param is not None:
                 parameters.append(param)
-        return {"block": {"parameters": parameters, "statements": args[len(parameters):]}}
+        return {"block": {"parameters": parameters, "assignments": args[len(parameters):]}}
     
     def param(self, args):
         name = args[0].value
@@ -107,7 +107,8 @@ def generate_xml(ast: dict):
     
     program_elem = ET.Element("program", language="SOL25", description=comment)
     
-    for cls in ast["program"]:
+    classes = ast["program"]
+    for cls in classes:
         generate_class(program_elem, cls)
     
     return program_elem
@@ -116,13 +117,40 @@ def generate_xml(ast: dict):
 def generate_class(parent_elem: ET.Element, class_node: dict):
     class_elem = ET.SubElement(parent_elem, class_node["type"], name=class_node["name"], parent=class_node["parent"])
     
-    for mth in class_node["body"]:
+    methods = class_node["body"]
+    for mth in methods:
         generate_method(class_elem, mth)
 
 # Function generating method elements
 def generate_method(parent_elem: ET.Element, method_node: dict):
     method_elem = ET.SubElement(parent_elem, method_node["type"], selector=method_node["selector"])
-  
+    
+    generate_block(method_elem, method_node["block"])
+
+# Function generating block elements  
+def generate_block(parent_elem: ET.Element, block_node: dict):
+    parameters = block_node["parameters"]
+    arity = len(parameters)
+    
+    block_elem = ET.SubElement(parent_elem, "block", arity=str(arity))
+    
+    for i in range(0, arity):
+        generate_parameter(block_elem, parameters[i], i+1)
+    
+    assignments = block_node["assignments"]
+    for i in range(0, len(assignments)):
+        generate_assignment(block_elem, assignments[i], i+1)
+        
+# Function generating parameter elements
+def generate_parameter(parent_elem: ET.Element, name: str, order: int):
+    param_elem = ET.SubElement(parent_elem, "parameter", name=name[1:], order=str(order))
+
+# Function generating assignment
+def generate_assignment(parent_elem: ET.Element, assign_node, order: int):
+    assign_elem = ET.SubElement(parent_elem, "assign", order=str(order))
+    
+    lvalue_elem = ET.SubElement(assign_elem, "var", name=assign_node["lvalue"])
+
 # Function checking program arguments and printing help message
 def check_arguments():
     help_message = """
@@ -224,3 +252,7 @@ ast = transformer.transform(parse_tree)
 # Generating and printing final XML
 xml_root = generate_xml(ast)
 print(format_xml(xml_root))
+
+# import json
+# json_output = json.dumps(ast, indent=4)
+# print(json_output)

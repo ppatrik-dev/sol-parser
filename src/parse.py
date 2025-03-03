@@ -41,27 +41,26 @@ class AST_Transformer(Transformer):
         return {"block": {"parameters": parameters, "assignments": args[len(parameters):]}}
     
     def param(self, args):
-        name = args[0].value
+        name = (args[0].value)[1:]
         return {"param": name}    
         
     def assign(self, args):
-        lvalue = args[0].value
-        rvalue = args[1]
-        return {"type": "assign", "lvalue": lvalue, "rvalue": rvalue}
+        var = args[0].value
+        return {"type": "assign", "var": var} | args[1]
     
     def expr(self, args):
-        return ({"type": "expr"} | args[0] | args[1])
+        return {"expr": {"object": args[0], "message": args[1]}}
     
     def no_param_sel(self, args):
         name = args[0].value
         return {"type": "no_param_sel", "name": name}
     
-    def message(self, args):
-        return {"message": args}
+    def expr_tail(self, args):
+        return args
     
     def param_sel(self, args):
         name = args[0].value
-        return {"type": "param_sel", "name": name, "param": args[1]}
+        return {"type": "param_sel", "name": name, "arg": args[1]}
     
     def integer(self, args):
         value = args[0].value
@@ -71,9 +70,9 @@ class AST_Transformer(Transformer):
         value = args[0].value
         return {"type": "string", "value": value}
     
-    def obj_id(self, args):
+    def var_id(self, args):
         name = args[0].value
-        return {"type": "obj", "name": name}
+        return {"type": "var", "name": name}
     
     def class_id(self, args):
         name = args[0].value
@@ -83,7 +82,7 @@ class AST_Transformer(Transformer):
         return ({"type": "block_expr"} | args[0])
     
     def nested_expr(self, args):
-        return {"nested_expr": args[0]}
+        return ({"type": "nested_expr"} | args[0])
 
 # Function searching for first program comment
 def get_first_comment(source_code):
@@ -98,8 +97,10 @@ def get_first_comment(source_code):
 # Function formating final XML output using 'dom.minidom' module
 def format_xml(root_elem: ET.Element):
     xml_string = ET.tostring(root_elem, encoding="utf-8")
-    parsed = xml.dom.minidom.parseString(xml_string)
-    return parsed.toprettyxml(indent="  ", encoding="UTF-8").decode("utf-8")
+    parsed_dom = xml.dom.minidom.parseString(xml_string)
+    xml_output = parsed_dom.toprettyxml(indent="  ", encoding="UTF-8").decode("utf-8")
+    
+    return xml_output.strip()
 
 # Function generating final XML representation of program AST
 def generate_xml(ast: dict):
@@ -143,14 +144,61 @@ def generate_block(parent_elem: ET.Element, block_node: dict):
         
 # Function generating parameter elements
 def generate_parameter(parent_elem: ET.Element, name: str, order: int):
-    param_elem = ET.SubElement(parent_elem, "parameter", name=name[1:], order=str(order))
+    ET.SubElement(parent_elem, "parameter", name=name, order=str(order))
 
-# Function generating assignment
+# Function generating assignment elements
 def generate_assignment(parent_elem: ET.Element, assign_node, order: int):
     assign_elem = ET.SubElement(parent_elem, "assign", order=str(order))
     
-    lvalue_elem = ET.SubElement(assign_elem, "var", name=assign_node["lvalue"])
+    lvalue_elem = ET.SubElement(assign_elem, "var", name=assign_node["var"])
+    rvalue_elem = ET.SubElement(assign_elem, "expr")
+    generate_expression(rvalue_elem, assign_node["expr"])
 
+# Function generating expression elements
+def generate_expression(parent_elem: ET.Element, expression_node: dict):    
+    selector = ""
+    messages = expression_node["message"]
+    for msg in messages:
+        selector += msg["name"]
+    
+    selector_elem = ET.SubElement(parent_elem, "send", selector=selector)
+    expr_elem = ET.SubElement(selector_elem, "expr")
+    
+    object_node = expression_node["object"]
+    message_node = expression_node["message"]
+
+    nested_expr = object_node.get("expr")
+    if nested_expr == None:
+        ET.SubElement(expr_elem, object_node["type"], name=object_node["name"])
+    else:
+        generate_expression(expr_elem, nested_expr)
+    
+    if message_node[0]["type"] == "param_sel":
+        for i in range(0, len(message_node)):
+            generate_argument(selector_elem, message_node[i]["arg"], i+1)
+
+# Function generating argument elements   
+def generate_argument(parent_elem: ET.Element, arg_node: dict, order: int):
+    arg_elem = ET.SubElement(parent_elem, "arg", order=str(order))
+    expr_elem = ET.SubElement(arg_elem, "expr")
+    
+    arg_type = arg_node["type"]
+
+    if arg_type == "integer":
+        ET.SubElement(expr_elem, "literal", attrib={"class": "Integer", "value": arg_node["value"]})
+
+    elif arg_type == "string":
+        ET.SubElement(expr_elem, "literal", attrib={"class": "String", "value": arg_node["value"]})
+    
+    elif arg_type == "var":
+        ET.SubElement(expr_elem, "var", name=arg_node["name"])
+    
+    elif arg_type == "nested_expr":
+        generate_expression(expr_elem, arg_node["expr"])
+        
+    elif arg_type == "block_expr":
+        generate_block(expr_elem, arg_node["block"])
+    
 # Function checking program arguments and printing help message
 def check_arguments():
     help_message = """
@@ -198,12 +246,13 @@ block_par: COL_ID -> param
 block_stat: ID ":=" expr "." -> assign
 
 expr: expr_base expr_tail
-expr_tail: ID -> no_param_sel
-        | expr_sel+ -> message
-expr_sel: ID_COL expr_base -> param_sel
+expr_tail: no_param_sel
+        | param_sel+
+no_param_sel: ID
+param_sel: ID_COL expr_base
 expr_base: INT -> integer 
         | STR -> string
-        | ID -> obj_id
+        | ID -> var_id
         | CID -> class_id
         | block -> block_expr
         | "(" expr ")" -> nested_expr
@@ -252,7 +301,3 @@ ast = transformer.transform(parse_tree)
 # Generating and printing final XML
 xml_root = generate_xml(ast)
 print(format_xml(xml_root))
-
-# import json
-# json_output = json.dumps(ast, indent=4)
-# print(json_output)

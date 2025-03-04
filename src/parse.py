@@ -68,7 +68,7 @@ class AST_Transformer(Transformer):
     
     def string(self, args):
         value = args[0].value
-        return {"type": "string", "value": value}
+        return {"type": "string", "value": value[1:-1]}
     
     def var_id(self, args):
         name = args[0].value
@@ -83,6 +83,18 @@ class AST_Transformer(Transformer):
     
     def nested_expr(self, args):
         return ({"type": "nested_expr"} | args[0])
+
+# List of SOL25 keywords
+keywords = ["class", "self", "super", "nil", "true", "false"]
+
+# List of SOL25 builtin classes
+builtins = ["Object", "Nil", "True", "False", "Integer", "String", "Block"]
+
+# Syntactic check for keywords used as identifier
+def check_keyword_id(id: str):
+    if id in keywords:
+        sys.stderr.write("Syntactic Error: Keyword can not be used as indetifier")
+        sys.exit(22)
 
 # Function searching for first program comment
 def get_first_comment(source_code) -> str | None:
@@ -144,13 +156,17 @@ def generate_block(parent_elem: ET.Element, block_node: dict):
         
 # Function generating parameter elements
 def generate_parameter(parent_elem: ET.Element, name: str, order: int):
+    check_keyword_id(name)
     ET.SubElement(parent_elem, "parameter", name=name, order=str(order))
 
 # Function generating assignment elements
 def generate_assignment(parent_elem: ET.Element, assign_node, order: int):
     assign_elem = ET.SubElement(parent_elem, "assign", order=str(order))
     
-    lvalue_elem = ET.SubElement(assign_elem, "var", name=assign_node["var"])
+    var_id = assign_node["var"]
+    check_keyword_id(var_id)
+    ET.SubElement(assign_elem, "var", name=var_id)
+    
     rvalue_elem = ET.SubElement(assign_elem, "expr")
     generate_expression(rvalue_elem, assign_node["expr"])
 
@@ -161,6 +177,7 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict):
     for msg in messages:
         selector += msg["name"]
     
+    check_keyword_id(selector)
     selector_elem = ET.SubElement(parent_elem, "send", selector=selector)
     expr_elem = ET.SubElement(selector_elem, "expr")
     
@@ -169,8 +186,13 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict):
 
     if object_node["type"] == "nested_expr":
         generate_expression(expr_elem, object_node["expr"])
+        
     elif object_node["type"] == "block_expr":
         generate_block(expr_elem, object_node["block"])
+        
+    elif object_node["type"] == "class":
+        ET.SubElement(expr_elem, "literal", attrib={"class": "class", "value": object_node["name"]})
+        
     else:
         ET.SubElement(expr_elem, object_node["type"], name=object_node["name"])
     
@@ -193,6 +215,9 @@ def generate_argument(parent_elem: ET.Element, arg_node: dict, order: int):
     
     elif arg_type == "var":
         ET.SubElement(expr_elem, "var", name=arg_node["name"])
+        
+    elif arg_type == "class":
+        ET.SubElement(expr_elem, "literal", atrrib={"class": "Integer", "value": arg_node["name"]})
     
     elif arg_type == "nested_expr":
         generate_expression(expr_elem, arg_node["expr"])
@@ -302,7 +327,8 @@ comment = get_first_comment(input_program)
 
 # Generating and printing final XML
 xml_root = generate_xml(ast, comment)
-print(format_xml(xml_root).replace(r"\n", "&nbsp;"))
+# print(format_xml(xml_root).replace(r"\n", "&nbsp;"))
+print(format_xml(xml_root))
 
 # import json
 # json_output = json.dumps(ast, indent=4)

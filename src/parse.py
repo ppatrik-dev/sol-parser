@@ -2,6 +2,7 @@
 # Author: Patrik Prochazka
 # Login: xprochp00
 
+from ast import arg, expr
 import sys, re
 from lark import (
     Lark, LarkError, Transformer,
@@ -84,11 +85,14 @@ class AST_Transformer(Transformer):
     def nested_expr(self, args):
         return ({"type": "nested_expr"} | args[0])
 
-# List of SOL25 keywords
+# List of keywords
 keywords = ["class", "self", "super", "nil", "true", "false"]
 
-# List of SOL25 builtin classes
-builtins = ["Object", "Nil", "True", "False", "Integer", "String", "Block"]
+# List of builtin classes
+builtins_classes = ["Object", "Nil", "True", "False", "Integer", "String", "Block"]
+
+# List of global objects
+global_objects = ["nil", "true", "false"]
 
 # Syntactic check for keywords used as identifier
 def check_keyword_id(id: str):
@@ -166,9 +170,7 @@ def generate_assignment(parent_elem: ET.Element, assign_node, order: int):
     var_id = assign_node["var"]
     check_keyword_id(var_id)
     ET.SubElement(assign_elem, "var", name=var_id)
-    
-    rvalue_elem = ET.SubElement(assign_elem, "expr")
-    generate_expression(rvalue_elem, assign_node["expr"])
+    generate_expression(assign_elem, assign_node["expr"])
 
 # Function generating expression elements
 def generate_expression(parent_elem: ET.Element, expression_node: dict):    
@@ -176,54 +178,60 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict):
     messages = expression_node["message"]
     for msg in messages:
         selector += msg["name"]
-    
-    check_keyword_id(selector)
-    selector_elem = ET.SubElement(parent_elem, "send", selector=selector)
-    expr_elem = ET.SubElement(selector_elem, "expr")
-    
+     
     object_node = expression_node["object"]
     message_node = expression_node["message"]
-
-    if object_node["type"] == "nested_expr":
-        generate_expression(expr_elem, object_node["expr"])
-        
-    elif object_node["type"] == "block_expr":
-        generate_block(expr_elem, object_node["block"])
-        
-    elif object_node["type"] == "class":
-        ET.SubElement(expr_elem, "literal", attrib={"class": "class", "value": object_node["name"]})
+    
+    if selector == "":
+        generate_literal(parent_elem, object_node)
         
     else:
-        ET.SubElement(expr_elem, object_node["type"], name=object_node["name"])
-    
-    if message_node[0]["type"] == "param_sel":
-        for i in range(0, len(message_node)):
-            generate_argument(selector_elem, message_node[i]["arg"], i+1)
+        check_keyword_id(selector)
+        
+        if parent_elem.tag == "assign":
+            expr_elem = ET.SubElement(parent_elem, "expr")
+            selector_elem = ET.SubElement(expr_elem, "send", selector=selector)
+        else:
+            selector_elem = ET.SubElement(parent_elem, "send", selector=selector)
+        
+        generate_literal(selector_elem, object_node)        
+
+        if message_node and message_node[0]["type"] == "param_sel":
+            for i in range(0, len(message_node)):
+                generate_argument(selector_elem, message_node[i]["arg"], i+1)
 
 # Function generating argument elements   
 def generate_argument(parent_elem: ET.Element, arg_node: dict, order: int):
     arg_elem = ET.SubElement(parent_elem, "arg", order=str(order))
-    expr_elem = ET.SubElement(arg_elem, "expr")
     
-    arg_type = arg_node["type"]
+    generate_literal(arg_elem, arg_node)
 
-    if arg_type == "integer":
-        ET.SubElement(expr_elem, "literal", attrib={"class": "Integer", "value": arg_node["value"]})
+# Function generating literal element
+def generate_literal(parent_elem: ET.Element, node: dict):
+    expr_elem = ET.SubElement(parent_elem, "expr")
+    
+    node_type = node["type"]
+    
+    if node_type == "nested_expr":
+        generate_expression(expr_elem, node["expr"])
+        
+    elif node_type == "block_expr":
+        generate_block(expr_elem, node["block"])
+        
+    elif node_type == "var":
+        if node["name"] in global_objects:
+            ET.SubElement(expr_elem, "literal", attrib={"class": node["name"].capitalize(), "value": node["name"]})
+        else:
+            ET.SubElement(expr_elem, "var", name=node["name"])
+        
+    elif node_type == "class":
+        ET.SubElement(expr_elem, "literal", attrib={"class": "class", "value": node["name"]})
+        
+    elif node_type == "integer":
+        ET.SubElement(expr_elem, "literal", attrib={"class": "Integer", "value": node["value"]})
 
-    elif arg_type == "string":
-        ET.SubElement(expr_elem, "literal", attrib={"class": "String", "value": arg_node["value"]})
-    
-    elif arg_type == "var":
-        ET.SubElement(expr_elem, "var", name=arg_node["name"])
-        
-    elif arg_type == "class":
-        ET.SubElement(expr_elem, "literal", atrrib={"class": "Integer", "value": arg_node["name"]})
-    
-    elif arg_type == "nested_expr":
-        generate_expression(expr_elem, arg_node["expr"])
-        
-    elif arg_type == "block_expr":
-        generate_block(expr_elem, arg_node["block"])
+    elif node_type == "string":
+        ET.SubElement(expr_elem, "literal", attrib={"class": "String", "value": node["value"]})
     
 # Function checking program arguments and printing help message
 def check_arguments():
@@ -272,15 +280,15 @@ block_stat: ID ":=" expr "." -> assign
 
 expr: expr_base expr_tail
 expr_tail: no_param_sel
-        | param_sel+
+        | param_sel*
 no_param_sel: ID
 param_sel: ID_COL expr_base
-expr_base: INT -> integer 
-        | STR -> string
+expr_base: "(" expr ")" -> nested_expr
+        | block -> block_expr
         | ID -> var_id
         | CID -> class_id
-        | block -> block_expr
-        | "(" expr ")" -> nested_expr
+        | INT -> integer
+        | STR -> string
 
 CID: /[A-Z][a-zA-Z0-9]*/
 

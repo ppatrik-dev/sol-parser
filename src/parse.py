@@ -2,6 +2,7 @@
 # Author: Patrik Prochazka
 # Login: xprochp00
 
+import select
 import sys, re
 from lark import (
     Lark, LarkError, Transformer,
@@ -90,6 +91,9 @@ keywords = ["class", "self", "super", "nil", "true", "false"]
 # List of builtin classes
 builtins_classes = ["Object", "Nil", "True", "False", "Integer", "String", "Block"]
 
+# List of class methods
+class_methods = ["new", "from:"]
+
 # List of global objects
 global_objects = ["nil", "true", "false"]
 
@@ -109,6 +113,16 @@ def check_class_redefined(class_id: str):
 def check_class_defined(class_id: str):
     if (class_id not in builtins_classes) and (class_id not in user_classes) :
         sys.stderr.write(f"Semantic Error: Class '{class_id}' not defined\n")
+        sys.exit(32)
+        
+# Function checking for class method message
+def check_class_message(class_id: str, selector: str):
+    if (selector == "read") and (class_id != "String"):
+        sys.stderr.write(f"Semantic Error: Class '{class_id}' have no class method '{selector}'\n")
+        sys.exit(32)
+    
+    if selector not in class_methods:
+        sys.stderr.write(f"Semantic Error: Class '{class_id}' have no class method '{selector}'\n")
         sys.exit(32)
         
 # Function checking for Main class definition
@@ -132,7 +146,7 @@ def check_run_no_parameters(block_parameters: list[str]):
 # Function for checking for block_parameters count equal to method arity
 def check_parameters_arity(selector: str, block_parameters: list[str]):
     if selector.count(":") != len(block_parameters):
-        sys.stderr.write(f"Semantic Error: Invalid block_parameters arity in method '{selector}'\n")
+        sys.stderr.write(f"Semantic Error: Invalid block parameters arity in method '{selector}'\n")
         sys.exit(33)
         
 # Function checking for block parameter collision
@@ -270,6 +284,9 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict, paramete
      
     object_node = expression_node["object"]
     message_node = expression_node["message"]
+    
+    if object_node["type"] == "class":
+        check_class_message(object_node["name"], selector)
     
     if selector == "":
         generate_literal(parent_elem, object_node, parameters, variables)

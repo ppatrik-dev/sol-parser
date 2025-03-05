@@ -2,7 +2,8 @@
 # Author: Patrik Prochazka
 # Login: xprochp00
 
-from ast import arg, expr
+from ast import main
+from pdb import run
 import sys, re
 from lark import (
     Lark, LarkError, Transformer,
@@ -94,11 +95,44 @@ builtins_classes = ["Object", "Nil", "True", "False", "Integer", "String", "Bloc
 # List of global objects
 global_objects = ["nil", "true", "false"]
 
-# Syntactic check for keywords used as identifier
-def check_keyword_id(id: str):
+# List of user classes
+user_classes = []
+
+# Function checking for Main class definition
+def check_main_class_defined():
+    if "Main" not in user_classes:
+        sys.stderr.write("Semantic Error: Main class not defined\n")
+        sys.exit(31)
+
+# Function checking for Main run method definition
+def check_run_method_defined(methods: list):
+    if "run" not in methods:
+        sys.stderr.write("Semantic Error: Main run method not defined\n")
+        sys.exit(31)
+
+# Function checking for no parameters in Main run method
+def check_run_no_parameters(parameters: list):
+    if parameters:
+        sys.stderr.write("Semantic Error: Main run method can not have parameters\n")
+        sys.exit(33)
+
+# Function checking for keyword used as identifier
+def check_keyword_identifier(id: str):
     if id in keywords:
-        sys.stderr.write("Syntactic Error: Keyword can not be used as indetifier")
+        sys.stderr.write(f"Syntactic Error: Keyword '{id}' can not be used as indetifier\n")
         sys.exit(22)
+
+# Function checking for class definition
+def check_class_defined(class_id: str):
+    if (class_id not in builtins_classes) and (class_id not in user_classes) :
+        sys.stderr.write(f"Semantic Error: Class '{class_id}' not defined\n")
+        sys.exit(32)
+        
+# Function checking for class redefinition
+def check_class_redefined(class_id: str):
+    if (class_id in builtins_classes) or (class_id in user_classes):
+        sys.stderr.write(f"Semantic Error: Class '{class_id}' redefined\n")
+        sys.exit(35)
 
 # Function searching for first program comment
 def get_first_comment(source_code) -> str | None:
@@ -119,6 +153,8 @@ def format_xml(root_elem: ET.Element) -> str:
 
 # Function generating final XML representation of program AST
 def generate_xml(ast: dict, cmt: str) -> ET.Element:
+    main_class_defined = False
+    
     if cmt == None:
         program_elem = ET.Element("program", language="SOL25")
     else:
@@ -127,20 +163,37 @@ def generate_xml(ast: dict, cmt: str) -> ET.Element:
     classes = ast["program"]
     for cls in classes:
         generate_class(program_elem, cls)
+        user_classes.append(cls["name"])
+        
+    check_main_class_defined()
     
     return program_elem
 
 # Function generating class elements
 def generate_class(parent_elem: ET.Element, class_node: dict):
+    class_methods = []
+    
+    check_class_redefined(class_node["name"])
+    check_class_defined(class_node["parent"])
+    
     class_elem = ET.SubElement(parent_elem, class_node["type"], name=class_node["name"], parent=class_node["parent"])
     
     methods = class_node["body"]
     for mth in methods:
         generate_method(class_elem, mth)
+        class_methods.append(mth["selector"])
+        
+    if class_node["name"] == "Main":
+        check_run_method_defined(class_methods)
 
 # Function generating method elements
 def generate_method(parent_elem: ET.Element, method_node: dict):
     method_elem = ET.SubElement(parent_elem, method_node["type"], selector=method_node["selector"])
+    
+    run_method_defined = False
+    if parent_elem.attrib["name"] == "Main":
+        if method_node["selector"] == "run":
+            check_run_no_parameters(method_node["block"]["parameters"])
     
     generate_block(method_elem, method_node["block"])
 
@@ -160,7 +213,8 @@ def generate_block(parent_elem: ET.Element, block_node: dict):
         
 # Function generating parameter elements
 def generate_parameter(parent_elem: ET.Element, name: str, order: int):
-    check_keyword_id(name)
+    check_keyword_identifier(name)
+    
     ET.SubElement(parent_elem, "parameter", name=name, order=str(order))
 
 # Function generating assignment elements
@@ -168,14 +222,15 @@ def generate_assignment(parent_elem: ET.Element, assign_node, order: int):
     assign_elem = ET.SubElement(parent_elem, "assign", order=str(order))
     
     var_id = assign_node["var"]
-    check_keyword_id(var_id)
+    check_keyword_identifier(var_id)
+    
     ET.SubElement(assign_elem, "var", name=var_id)
     generate_expression(assign_elem, assign_node["expr"])
 
 # Function generating expression elements
 def generate_expression(parent_elem: ET.Element, expression_node: dict):    
-    selector = ""
     messages = expression_node["message"]
+    selector = ""
     for msg in messages:
         selector += msg["name"]
      
@@ -186,7 +241,7 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict):
         generate_literal(parent_elem, object_node)
         
     else:
-        check_keyword_id(selector)
+        check_keyword_identifier(selector)
         
         if parent_elem.tag == "assign":
             expr_elem = ET.SubElement(parent_elem, "expr")
@@ -225,6 +280,7 @@ def generate_literal(parent_elem: ET.Element, node: dict):
             ET.SubElement(expr_elem, "var", name=node["name"])
         
     elif node_type == "class":
+        check_class_defined(node["name"])
         ET.SubElement(expr_elem, "literal", attrib={"class": "class", "value": node["name"]})
         
     elif node_type == "integer":
@@ -249,7 +305,7 @@ def check_arguments():
         sys.stdout.write(help_message)
         sys.exit(0)
     elif argc > 1:
-        sys.stderr.write("Invalid arguments, use --help for usage information")
+        sys.stderr.write("Invalid arguments, use --help for usage information\n")
         sys.exit(10)
 
 try:
@@ -258,12 +314,12 @@ try:
 
 # Handle IO error while reading input
 except IOError as e:
-    sys.stderr.write(f"IOError: {e}")
+    sys.stderr.write(f"IOError: {e}\n")
     sys.exit(11)
 
 # Handle other exceptions
 except Exception as e:
-    sys.stderr.write(f"Error: {e}")
+    sys.stderr.write(f"Error: {e}\n")
     sys.exit(11)
 
 # Define parsing grammar for Lark parser
@@ -314,20 +370,20 @@ try:
 
 # Handle Lexical errors with exit code 21
 except UnexpectedCharacters as e:
-    sys.stderr.write(f"Lexical Error: {e}")
+    sys.stderr.write(f"Lexical Error: {e}\n")
     sys.exit(21)
 
 # Handle Syntactic errors with exit code 22
 except (UnexpectedToken, UnexpectedEOF) as e:
-    sys.stderr.write(f"Syntactic Error: {e}")
+    sys.stderr.write(f"Syntactic Error: {e}\n")
     sys.exit(22)
 
 # Handle other Lark errors with exit code 99    
 except LarkError as e:
-    sys.stderr.write(f"Lark Error: {e}")
+    sys.stderr.write(f"Lark Error: {e}\n")
     sys.exit(99)
 
-# Using custom definied transformer for AST
+# Using custom defined transformer for AST
 transformer = AST_Transformer()
 ast = transformer.transform(parse_tree)
 

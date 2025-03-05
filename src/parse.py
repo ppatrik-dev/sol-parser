@@ -2,8 +2,6 @@
 # Author: Patrik Prochazka
 # Login: xprochp00
 
-from ast import main
-from pdb import run
 import sys, re
 from lark import (
     Lark, LarkError, Transformer,
@@ -97,8 +95,17 @@ builtins_classes = ["Object", "Nil", "True", "False", "Integer", "String", "Bloc
 # List of global objects
 global_objects = ["nil", "true", "false"]
 
+# List of pseudo variables
+pseudo_variables = ["self", "super"]
+
 # List of user classes
 user_classes = []
+
+# List of block parameters
+block_parameters = []
+
+# List of block variables
+block_variables = []
 
 # Function checking for class redefinition
 def check_class_redefined(class_id: str):
@@ -147,6 +154,12 @@ def check_parameter_assign(var_id: str, parameters: list[str]):
     if var_id in parameters:
         sys.stderr.write(f"Semantic Error: Assignment to block parameter\n")
         sys.exit(34)
+
+# Function checking for indetifier definition
+def check_variable_definied(var_id: str):
+    if (var_id not in block_parameters) and (var_id not in block_variables) and (var_id not in pseudo_variables):
+        sys.stderr.write(f"Semantic Error: Indetifier '{var_id}' not definied\n")
+        sys.exit(32)
 
 # Function checking for keyword used as identifier
 def check_keyword_identifier(id: str):
@@ -221,7 +234,8 @@ def generate_method(parent_elem: ET.Element, method_node: dict):
 
 # Function generating block elements  
 def generate_block(parent_elem: ET.Element, block_node: dict):
-    parameters = block_node["parameters"]
+    block_parameters = parameters = block_node["parameters"]
+    block_variables = []
     arity = len(parameters)
     
     block_elem = ET.SubElement(parent_elem, "block", arity=str(arity))
@@ -249,6 +263,7 @@ def generate_assignment(parent_elem: ET.Element, assign_node, order: int):
     
     var_id = assign_node["var"]
     check_keyword_identifier(var_id)
+    block_variables.append(var_id)
     
     ET.SubElement(assign_elem, "var", name=var_id)
     generate_expression(assign_elem, assign_node["expr"])
@@ -303,6 +318,7 @@ def generate_literal(parent_elem: ET.Element, node: dict):
         if node["name"] in global_objects:
             ET.SubElement(expr_elem, "literal", attrib={"class": node["name"].capitalize(), "value": node["name"]})
         else:
+            check_variable_definied(node["name"])
             ET.SubElement(expr_elem, "var", name=node["name"])
         
     elif node_type == "class":

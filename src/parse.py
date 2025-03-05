@@ -154,7 +154,7 @@ def check_variable_definied(var_id: str, parameters: list[str], variables: list[
         sys.exit(32)
 
 # Function checking for keyword used as identifier
-def check_keyword_identifier(id: str):
+def check_keyword_used(id: str):
     if id in keywords:
         sys.stderr.write(f"Syntactic Error: Keyword '{id}' used as indetifier\n")
         sys.exit(22)
@@ -174,7 +174,7 @@ def format_xml(root_elem: ET.Element) -> str:
     parsed_dom = xml.dom.minidom.parseString(xml_string)
     xml_output = parsed_dom.toprettyxml(indent="  ", encoding="UTF-8").decode("utf-8")
     
-    return xml_output.strip()
+    return xml_output.strip().replace(r"\n", "&#10;")
 
 # Function generating final XML representation of program AST
 def generate_xml(ast: dict, cmt: str) -> ET.Element:
@@ -213,9 +213,10 @@ def generate_class(parent_elem: ET.Element, class_node: dict):
 
 # Function generating method elements
 def generate_method(parent_elem: ET.Element, method_node: dict):
+    check_keyword_used(method_node["selector"])
+    
     method_elem = ET.SubElement(parent_elem, method_node["type"], selector=method_node["selector"])
     
-    run_method_defined = False
     if parent_elem.attrib["name"] == "Main":
         if method_node["selector"] == "run":
             check_run_no_parameters(method_node["block"]["block_parameters"])
@@ -245,7 +246,7 @@ def generate_block(parent_elem: ET.Element, block_node: dict):
         
 # Function generating parameter elements
 def generate_parameter(parent_elem: ET.Element, name: str, order: int):
-    check_keyword_identifier(name)
+    check_keyword_used(name)
     
     ET.SubElement(parent_elem, "parameter", name=name, order=str(order))
 
@@ -254,7 +255,7 @@ def generate_assignment(parent_elem: ET.Element, assign_node, order: int, parame
     assign_elem = ET.SubElement(parent_elem, "assign", order=str(order))
     
     var_id = assign_node["var"]
-    check_keyword_identifier(var_id)
+    check_keyword_used(var_id)
     variables.append(var_id)
     
     ET.SubElement(assign_elem, "var", name=var_id)
@@ -274,7 +275,7 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict, paramete
         generate_literal(parent_elem, object_node, parameters, variables)
         
     else:
-        check_keyword_identifier(selector)
+        check_keyword_used(selector)
         
         if parent_elem.tag == "assign":
             expr_elem = ET.SubElement(parent_elem, "expr")
@@ -425,7 +426,6 @@ comment = get_first_comment(input_program)
 
 # Generating and printing final XML
 xml_root = generate_xml(ast, comment)
-# print(format_xml(xml_root).replace(r"\n", "&nbsp;"))
 print(format_xml(xml_root))
 
 # import json

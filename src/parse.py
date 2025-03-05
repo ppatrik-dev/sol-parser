@@ -10,8 +10,6 @@ from lark import (
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 
-from pyparsing import ParseElementEnhance
-
 # Creating AST trasformer using base class Transformer from Lark.
 # Defining transform functions for grammar rules to transform
 # Lark parse tree to AST representation similar to JSON
@@ -35,12 +33,12 @@ class AST_Transformer(Transformer):
         return {"selector": name}
         
     def block(self, args):
-        parameters = []
+        block_parameters = []
         for dct in args:
             param = dct.get("param")
             if param is not None:
-                parameters.append(param)
-        return {"block": {"parameters": parameters, "assignments": args[len(parameters):]}}
+                block_parameters.append(param)
+        return {"block": {"block_parameters": block_parameters, "assignments": args[len(block_parameters):]}}
     
     def param(self, args):
         name = (args[0].value)[1:]
@@ -101,15 +99,9 @@ pseudo_variables = ["self", "super"]
 # List of user classes
 user_classes = []
 
-# List of block parameters
-block_parameters = []
-
-# List of block variables
-block_variables = []
-
 # Function checking for class redefinition
 def check_class_redefined(class_id: str):
-    if (class_id in builtins_classes) or (class_id in user_classes):
+    if (class_id in builtins_classes) or (user_classes.count(class_id) > 1):
         sys.stderr.write(f"Semantic Error: Class '{class_id}' redefined\n")
         sys.exit(35)
 
@@ -131,34 +123,34 @@ def check_run_method_defined(methods: list[str]):
         sys.stderr.write("Semantic Error: Main run method not defined\n")
         sys.exit(31)
 
-# Function checking for no parameters in Main run method
-def check_run_no_parameters(parameters: list[str]):
-    if parameters:
-        sys.stderr.write("Semantic Error: Main run method with specified parameters\n")
+# Function checking for no block_parameters in Main run method
+def check_run_no_parameters(block_parameters: list[str]):
+    if block_parameters:
+        sys.stderr.write("Semantic Error: Main run method with specified block_parameters\n")
         sys.exit(33)
 
-# Function for checking for parameters count equal to method arity
-def check_parameters_arity(selector: str, parameters: list[str]):
-    if selector.count(":") != len(parameters):
-        sys.stderr.write(f"Semantic Error: Invalid parameters arity in method '{selector}'\n")
+# Function for checking for block_parameters count equal to method arity
+def check_parameters_arity(selector: str, block_parameters: list[str]):
+    if selector.count(":") != len(block_parameters):
+        sys.stderr.write(f"Semantic Error: Invalid block_parameters arity in method '{selector}'\n")
         sys.exit(33)
         
 # Function checking for block parameter collision
-def check_parameters_collide(parameters: list[str]):
-    if len(parameters) != len(set(parameters)):
+def check_parameters_collide(block_parameters: list[str]):
+    if len(block_parameters) != len(set(block_parameters)):
         sys.stderr.write("Semantic Error: Block paramaters with same identifier\n")
         sys.exit(35)
         
 # Function checking for block parameter assignment
-def check_parameter_assign(var_id: str, parameters: list[str]):
-    if var_id in parameters:
+def check_parameter_assign(var_id: str, block_parameters: list[str]):
+    if var_id in block_parameters:
         sys.stderr.write(f"Semantic Error: Assignment to block parameter\n")
         sys.exit(34)
 
 # Function checking for indetifier definition
-def check_variable_definied(var_id: str):
-    if (var_id not in block_parameters) and (var_id not in block_variables) and (var_id not in pseudo_variables):
-        sys.stderr.write(f"Semantic Error: Indetifier '{var_id}' not definied\n")
+def check_variable_definied(var_id: str, parameters: list[str], variables: list[str]):
+    if (var_id not in parameters) and (var_id not in variables) and (var_id not in pseudo_variables):
+        sys.stderr.write(f"Semantic Error: Indetifier '{var_id}' not defined\n")
         sys.exit(32)
 
 # Function checking for keyword used as identifier
@@ -186,17 +178,17 @@ def format_xml(root_elem: ET.Element) -> str:
 
 # Function generating final XML representation of program AST
 def generate_xml(ast: dict, cmt: str) -> ET.Element:
-    main_class_defined = False
-    
     if cmt == None:
         program_elem = ET.Element("program", language="SOL25")
     else:
         program_elem = ET.Element("program", language="SOL25", description=cmt)
-    
+        
     classes = ast["program"]
     for cls in classes:
-        generate_class(program_elem, cls)
         user_classes.append(cls["name"])
+    
+    for cls in classes:
+        generate_class(program_elem, cls)
         
     check_main_class_defined()
     
@@ -226,30 +218,30 @@ def generate_method(parent_elem: ET.Element, method_node: dict):
     run_method_defined = False
     if parent_elem.attrib["name"] == "Main":
         if method_node["selector"] == "run":
-            check_run_no_parameters(method_node["block"]["parameters"])
+            check_run_no_parameters(method_node["block"]["block_parameters"])
             
-    check_parameters_arity(method_node["selector"], method_node["block"]["parameters"])
+    check_parameters_arity(method_node["selector"], method_node["block"]["block_parameters"])
     
     generate_block(method_elem, method_node["block"])
 
 # Function generating block elements  
 def generate_block(parent_elem: ET.Element, block_node: dict):
-    block_parameters = parameters = block_node["parameters"]
+    block_parameters = block_node["block_parameters"]
     block_variables = []
-    arity = len(parameters)
     
+    arity = len(block_parameters)
     block_elem = ET.SubElement(parent_elem, "block", arity=str(arity))
     
-    check_parameters_collide(parameters)
+    check_parameters_collide(block_parameters)
     
     for i in range(0, arity):
-        generate_parameter(block_elem, parameters[i], i+1)
+        generate_parameter(block_elem, block_parameters[i], i+1)
     
     assignments = block_node["assignments"]
     for i in range(0, len(assignments)):
-        check_parameter_assign(assignments[i]["var"], parameters)
+        check_parameter_assign(assignments[i]["var"], block_parameters)
 
-        generate_assignment(block_elem, assignments[i], i+1)
+        generate_assignment(block_elem, assignments[i], i+1, block_parameters, block_variables)
         
 # Function generating parameter elements
 def generate_parameter(parent_elem: ET.Element, name: str, order: int):
@@ -258,18 +250,18 @@ def generate_parameter(parent_elem: ET.Element, name: str, order: int):
     ET.SubElement(parent_elem, "parameter", name=name, order=str(order))
 
 # Function generating assignment elements
-def generate_assignment(parent_elem: ET.Element, assign_node, order: int):
+def generate_assignment(parent_elem: ET.Element, assign_node, order: int, parameters: list[str], variables: list[str]):
     assign_elem = ET.SubElement(parent_elem, "assign", order=str(order))
     
     var_id = assign_node["var"]
     check_keyword_identifier(var_id)
-    block_variables.append(var_id)
+    variables.append(var_id)
     
     ET.SubElement(assign_elem, "var", name=var_id)
-    generate_expression(assign_elem, assign_node["expr"])
+    generate_expression(assign_elem, assign_node["expr"], parameters, variables)
 
 # Function generating expression elements
-def generate_expression(parent_elem: ET.Element, expression_node: dict):    
+def generate_expression(parent_elem: ET.Element, expression_node: dict, parameters: list[str], variables: list[str]):    
     messages = expression_node["message"]
     selector = ""
     for msg in messages:
@@ -279,7 +271,7 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict):
     message_node = expression_node["message"]
     
     if selector == "":
-        generate_literal(parent_elem, object_node)
+        generate_literal(parent_elem, object_node, parameters, variables)
         
     else:
         check_keyword_identifier(selector)
@@ -290,26 +282,26 @@ def generate_expression(parent_elem: ET.Element, expression_node: dict):
         else:
             selector_elem = ET.SubElement(parent_elem, "send", selector=selector)
         
-        generate_literal(selector_elem, object_node)        
+        generate_literal(selector_elem, object_node, parameters, variables)        
 
         if message_node and message_node[0]["type"] == "param_sel":
             for i in range(0, len(message_node)):
-                generate_argument(selector_elem, message_node[i]["arg"], i+1)
+                generate_argument(selector_elem, message_node[i]["arg"], i+1, parameters, variables)
 
 # Function generating argument elements   
-def generate_argument(parent_elem: ET.Element, arg_node: dict, order: int):
+def generate_argument(parent_elem: ET.Element, arg_node: dict, order: int, parameters: list[str], variables: list[str]):
     arg_elem = ET.SubElement(parent_elem, "arg", order=str(order))
     
-    generate_literal(arg_elem, arg_node)
+    generate_literal(arg_elem, arg_node, parameters, variables)
 
 # Function generating literal element
-def generate_literal(parent_elem: ET.Element, node: dict):
+def generate_literal(parent_elem: ET.Element, node: dict, parameters: list[str], variables: list[str]):
     expr_elem = ET.SubElement(parent_elem, "expr")
     
     node_type = node["type"]
     
     if node_type == "nested_expr":
-        generate_expression(expr_elem, node["expr"])
+        generate_expression(expr_elem, node["expr"], parameters, variables)
         
     elif node_type == "block_expr":
         generate_block(expr_elem, node["block"])
@@ -318,7 +310,7 @@ def generate_literal(parent_elem: ET.Element, node: dict):
         if node["name"] in global_objects:
             ET.SubElement(expr_elem, "literal", attrib={"class": node["name"].capitalize(), "value": node["name"]})
         else:
-            check_variable_definied(node["name"])
+            check_variable_definied(node["name"], parameters, variables)
             ET.SubElement(expr_elem, "var", name=node["name"])
         
     elif node_type == "class":

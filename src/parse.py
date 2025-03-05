@@ -12,6 +12,8 @@ from lark import (
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 
+from pyparsing import ParseElementEnhance
+
 # Creating AST trasformer using base class Transformer from Lark.
 # Defining transform functions for grammar rules to transform
 # Lark parse tree to AST representation similar to JSON
@@ -98,29 +100,11 @@ global_objects = ["nil", "true", "false"]
 # List of user classes
 user_classes = []
 
-# Function checking for Main class definition
-def check_main_class_defined():
-    if "Main" not in user_classes:
-        sys.stderr.write("Semantic Error: Main class not defined\n")
-        sys.exit(31)
-
-# Function checking for Main run method definition
-def check_run_method_defined(methods: list):
-    if "run" not in methods:
-        sys.stderr.write("Semantic Error: Main run method not defined\n")
-        sys.exit(31)
-
-# Function checking for no parameters in Main run method
-def check_run_no_parameters(parameters: list):
-    if parameters:
-        sys.stderr.write("Semantic Error: Main run method can not have parameters\n")
-        sys.exit(33)
-
-# Function checking for keyword used as identifier
-def check_keyword_identifier(id: str):
-    if id in keywords:
-        sys.stderr.write(f"Syntactic Error: Keyword '{id}' can not be used as indetifier\n")
-        sys.exit(22)
+# Function checking for class redefinition
+def check_class_redefined(class_id: str):
+    if (class_id in builtins_classes) or (class_id in user_classes):
+        sys.stderr.write(f"Semantic Error: Class '{class_id}' redefined\n")
+        sys.exit(35)
 
 # Function checking for class definition
 def check_class_defined(class_id: str):
@@ -128,11 +112,47 @@ def check_class_defined(class_id: str):
         sys.stderr.write(f"Semantic Error: Class '{class_id}' not defined\n")
         sys.exit(32)
         
-# Function checking for class redefinition
-def check_class_redefined(class_id: str):
-    if (class_id in builtins_classes) or (class_id in user_classes):
-        sys.stderr.write(f"Semantic Error: Class '{class_id}' redefined\n")
+# Function checking for Main class definition
+def check_main_class_defined():
+    if "Main" not in user_classes:
+        sys.stderr.write("Semantic Error: Main class not defined\n")
+        sys.exit(31)
+
+# Function checking for Main run method definition
+def check_run_method_defined(methods: list[str]):
+    if "run" not in methods:
+        sys.stderr.write("Semantic Error: Main run method not defined\n")
+        sys.exit(31)
+
+# Function checking for no parameters in Main run method
+def check_run_no_parameters(parameters: list[str]):
+    if parameters:
+        sys.stderr.write("Semantic Error: Main run method with specified parameters\n")
+        sys.exit(33)
+
+# Function for checking for parameters count equal to method arity
+def check_parameters_arity(selector: str, parameters: list[str]):
+    if selector.count(":") != len(parameters):
+        sys.stderr.write(f"Semantic Error: Invalid parameters arity in method '{selector}'\n")
+        sys.exit(33)
+        
+# Function checking for block parameter collision
+def check_parameters_collide(parameters: list[str]):
+    if len(parameters) != len(set(parameters)):
+        sys.stderr.write("Semantic Error: Block paramaters with same identifier\n")
         sys.exit(35)
+        
+# Function checking for block parameter assignment
+def check_parameter_assign(var_id: str, parameters: list[str]):
+    if var_id in parameters:
+        sys.stderr.write(f"Semantic Error: Assignment to block parameter\n")
+        sys.exit(34)
+
+# Function checking for keyword used as identifier
+def check_keyword_identifier(id: str):
+    if id in keywords:
+        sys.stderr.write(f"Syntactic Error: Keyword '{id}' used as indetifier\n")
+        sys.exit(22)
 
 # Function searching for first program comment
 def get_first_comment(source_code) -> str | None:
@@ -194,6 +214,8 @@ def generate_method(parent_elem: ET.Element, method_node: dict):
     if parent_elem.attrib["name"] == "Main":
         if method_node["selector"] == "run":
             check_run_no_parameters(method_node["block"]["parameters"])
+            
+    check_parameters_arity(method_node["selector"], method_node["block"]["parameters"])
     
     generate_block(method_elem, method_node["block"])
 
@@ -204,11 +226,15 @@ def generate_block(parent_elem: ET.Element, block_node: dict):
     
     block_elem = ET.SubElement(parent_elem, "block", arity=str(arity))
     
+    check_parameters_collide(parameters)
+    
     for i in range(0, arity):
         generate_parameter(block_elem, parameters[i], i+1)
     
     assignments = block_node["assignments"]
     for i in range(0, len(assignments)):
+        check_parameter_assign(assignments[i]["var"], parameters)
+
         generate_assignment(block_elem, assignments[i], i+1)
         
 # Function generating parameter elements

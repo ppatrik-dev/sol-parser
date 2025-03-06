@@ -2,6 +2,7 @@
 # Author: Patrik Prochazka
 # Login: xprochp00
 
+from email.mime import base
 import select
 import sys, re
 from lark import (
@@ -101,11 +102,11 @@ global_objects = ["nil", "true", "false"]
 pseudo_variables = ["self", "super"]
 
 # List of user classes
-user_classes = []
+user_classes = {}
 
 # Function checking for class redefinition
 def check_class_redefined(class_id: str):
-    if (class_id in builtins_classes) or (user_classes.count(class_id) > 1):
+    if (class_id in builtins_classes) or (class_id in user_classes):
         sys.stderr.write(f"Semantic Error: Class '{class_id}' redefined\n")
         sys.exit(35)
 
@@ -114,14 +115,39 @@ def check_class_defined(class_id: str):
     if (class_id not in builtins_classes) and (class_id not in user_classes) :
         sys.stderr.write(f"Semantic Error: Class '{class_id}' not defined\n")
         sys.exit(32)
+    
+# Function checking if class is subclass of base class
+def is_subclass(class_id: str, base_class_id: str):
+    if class_id == base_class_id:
+        return True
+    
+    if base_class_id == "Object":
+        return True
+    
+    if class_id in builtins_classes:
+        return (base_class_id == "Object")
+    
+    while(True):
+        parent_class_id = user_classes[class_id]
+        
+        if parent_class_id in builtins_classes:
+            if parent_class_id == base_class_id:
+                return True
+            else:
+                return False
+            
+            break
+        
+        class_id = parent_class_id
         
 # Function checking for class method message
 def check_class_message(class_id: str, selector: str):
-    if (selector == "read") and (class_id != "String"):
-        sys.stderr.write(f"Semantic Error: Class '{class_id}' have no class method '{selector}'\n")
-        sys.exit(32)
+    if selector == "read":
+        if (not is_subclass(class_id, "String")):
+            sys.stderr.write(f"Semantic Error: Class '{class_id}' have no class method '{selector}'\n")
+            sys.exit(32)
     
-    if selector not in class_methods:
+    elif selector not in class_methods:
         sys.stderr.write(f"Semantic Error: Class '{class_id}' have no class method '{selector}'\n")
         sys.exit(32)
         
@@ -188,7 +214,7 @@ def format_xml(root_elem: ET.Element) -> str:
     parsed_dom = xml.dom.minidom.parseString(xml_string)
     xml_output = parsed_dom.toprettyxml(indent="  ", encoding="UTF-8").decode("utf-8")
     
-    return xml_output.strip().replace(r"\n", "&#10;")
+    return xml_output.strip()
 
 # Function generating final XML representation of program AST
 def generate_xml(ast: dict, cmt: str) -> ET.Element:
@@ -199,7 +225,10 @@ def generate_xml(ast: dict, cmt: str) -> ET.Element:
         
     classes = ast["program"]
     for cls in classes:
-        user_classes.append(cls["name"])
+        check_class_redefined(cls["name"])
+        check_class_defined(cls["parent"])
+        
+        user_classes[cls["name"]] = cls["parent"]
     
     for cls in classes:
         generate_class(program_elem, cls)
@@ -212,11 +241,8 @@ def generate_xml(ast: dict, cmt: str) -> ET.Element:
 def generate_class(parent_elem: ET.Element, class_node: dict):
     class_methods = []
     
-    check_class_redefined(class_node["name"])
-    check_class_defined(class_node["parent"])
-    
     class_elem = ET.SubElement(parent_elem, class_node["type"], name=class_node["name"], parent=class_node["parent"])
-    
+        
     methods = class_node["body"]
     for mth in methods:
         generate_method(class_elem, mth)

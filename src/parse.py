@@ -12,6 +12,18 @@ from lark import (
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 
+# Constant error codes values
+SUCCESS_EXIT            =   0
+ARGUMENTS_ERROR         =  10
+LEXICAL_ERROR           =  21
+SYNTACTIC_ERROR         =  22
+NO_MAIN_OR_RUN_ERROR    =  31
+NO_DEFINITION_ERROR     =  32
+BAD_ARRITY_ERROR        =  33
+COLLISION_ERROR         =  34
+OTHER_SEMANTIC_ERROR    =  35
+INTERNAL_ERROR          =  99
+
 # Creating AST trasformer using base class Transformer from Lark.
 # Defining transform functions for grammar rules to transform
 # Lark parse tree to AST representation similar to JSON
@@ -108,13 +120,13 @@ user_classes = {}
 def check_class_redefined(class_id: str):
     if (class_id in builtins_classes) or (class_id in user_classes):
         sys.stderr.write(f"Semantic Error: Class '{class_id}' redefined\n")
-        sys.exit(35)
+        sys.exit(OTHER_SEMANTIC_ERROR)
 
 # Function checking for class definition
 def check_class_defined(class_id: str):
     if (class_id not in builtins_classes) and (class_id not in user_classes) :
         sys.stderr.write(f"Semantic Error: Class '{class_id}' not defined\n")
-        sys.exit(32)
+        sys.exit(NO_DEFINITION_ERROR)
     
 # Function checking if class is subclass of base class
 def is_subclass(class_id: str, base_class_id: str):
@@ -145,53 +157,53 @@ def check_class_message(class_id: str, selector: str):
     if selector == "read":
         if (not is_subclass(class_id, "String")):
             sys.stderr.write(f"Semantic Error: Class '{class_id}' have no class method '{selector}'\n")
-            sys.exit(32)
+            sys.exit(NO_DEFINITION_ERROR)
     
     elif selector not in class_methods:
         sys.stderr.write(f"Semantic Error: Class '{class_id}' have no class method '{selector}'\n")
-        sys.exit(32)
+        sys.exit(NO_DEFINITION_ERROR)
         
 # Function checking for Main class definition
 def check_main_class_defined():
     if "Main" not in user_classes:
         sys.stderr.write("Semantic Error: Main class not defined\n")
-        sys.exit(31)
+        sys.exit(NO_MAIN_OR_RUN_ERROR)
 
 # Function checking for Main run method definition
 def check_run_method_defined(methods: list[str]):
     if "run" not in methods:
         sys.stderr.write("Semantic Error: Main run method not defined\n")
-        sys.exit(31)
+        sys.exit(NO_MAIN_OR_RUN_ERROR)
 
 # Function checking for no block_parameters in Main run method
 def check_run_no_parameters(block_parameters: list[str]):
     if block_parameters:
         sys.stderr.write("Semantic Error: Main run method with specified block_parameters\n")
-        sys.exit(33)
+        sys.exit(BAD_ARRITY_ERROR)
 
 # Function for checking for block_parameters count equal to method arity
 def check_parameters_arity(selector: str, block_parameters: list[str]):
     if selector.count(":") != len(block_parameters):
         sys.stderr.write(f"Semantic Error: Invalid block parameters arity in method '{selector}'\n")
-        sys.exit(33)
+        sys.exit(BAD_ARRITY_ERROR)
         
 # Function checking for block parameter collision
 def check_parameters_collide(block_parameters: list[str]):
     if len(block_parameters) != len(set(block_parameters)):
         sys.stderr.write("Semantic Error: Block paramaters with same identifier\n")
-        sys.exit(35)
+        sys.exit(OTHER_SEMANTIC_ERROR)
         
 # Function checking for block parameter assignment
 def check_parameter_assign(var_id: str, block_parameters: list[str]):
     if var_id in block_parameters:
         sys.stderr.write(f"Semantic Error: Assignment to block parameter\n")
-        sys.exit(34)
+        sys.exit(COLLISION_ERROR)
 
 # Function checking for indetifier definition
 def check_variable_definied(var_id: str, parameters: list[str], variables: list[str]):
     if (var_id not in parameters) and (var_id not in variables) and (var_id not in pseudo_variables):
         sys.stderr.write(f"Semantic Error: Indetifier '{var_id}' not defined\n")
-        sys.exit(32)
+        sys.exit(NO_DEFINITION_ERROR)
 
 # Function checking for keyword used as identifier
 def check_keyword_used(id: str):
@@ -384,10 +396,10 @@ def check_arguments():
     
     if (argc == 2) and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
         sys.stdout.write(help_message)
-        sys.exit(0)
+        sys.exit(SUCCESS_EXIT)
     elif argc > 1:
         sys.stderr.write("Invalid arguments, use --help for usage information\n")
-        sys.exit(10)
+        sys.exit(ARGUMENTS_ERROR)
 
 try:
     check_arguments()
@@ -452,17 +464,17 @@ try:
 # Handle Lexical errors with exit code 21
 except UnexpectedCharacters as e:
     sys.stderr.write(f"Lexical Error: {e}\n")
-    sys.exit(21)
+    sys.exit(LEXICAL_ERROR)
 
 # Handle Syntactic errors with exit code 22
 except (UnexpectedToken, UnexpectedEOF) as e:
     sys.stderr.write(f"Syntactic Error: {e}\n")
-    sys.exit(22)
+    sys.exit(SYNTACTIC_ERROR)
 
-# Handle other Lark errors with exit code 99    
+# Handle other Lark errors with exit code INTERNAL_ERROR    
 except LarkError as e:
     sys.stderr.write(f"Lark Error: {e}\n")
-    sys.exit(99)
+    sys.exit(INTERNAL_ERROR)
 
 # Using custom defined transformer for AST
 transformer = AST_Transformer()
@@ -477,5 +489,3 @@ print(format_xml(xml_root))
 # import json
 # json_output = json.dumps(ast, indent=4)
 # print(json_output)
-
-sys.exit(0)

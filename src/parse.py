@@ -1,9 +1,8 @@
 # File: parse.py
+# Info: IPP Project 1
 # Author: Patrik Prochazka
 # Login: xprochp00
 
-from email.mime import base
-import select
 import sys, re
 from lark import (
     Lark, LarkError, Transformer,
@@ -15,6 +14,7 @@ import xml.dom.minidom
 # Constant error codes values
 SUCCESS_EXIT            =   0
 ARGUMENTS_ERROR         =  10
+INPUT_ERROR             =  11
 LEXICAL_ERROR           =  21
 SYNTACTIC_ERROR         =  22
 NO_MAIN_OR_RUN_ERROR    =  31
@@ -129,7 +129,7 @@ def check_class_defined(class_id: str):
         sys.exit(NO_DEFINITION_ERROR)
     
 # Function checking if class is subclass of base class
-def is_subclass(class_id: str, base_class_id: str):
+def is_subclass(class_id: str, base_class_id: str) -> bool:
     if class_id == base_class_id:
         return True
     
@@ -147,8 +147,6 @@ def is_subclass(class_id: str, base_class_id: str):
                 return True
             else:
                 return False
-            
-            break
         
         class_id = parent_class_id
         
@@ -209,7 +207,7 @@ def check_variable_definied(var_id: str, parameters: list[str], variables: list[
 def check_keyword_used(id: str):
     if id in keywords:
         sys.stderr.write(f"Syntactic Error: Keyword '{id}' used as indetifier\n")
-        sys.exit(22)
+        sys.exit(SYNTACTIC_ERROR)
 
 # Function searching for first program comment
 def get_first_comment(source_code) -> str | None:
@@ -408,12 +406,12 @@ try:
 # Handle IO error while reading input
 except IOError as e:
     sys.stderr.write(f"IOError: {e}\n")
-    sys.exit(11)
+    sys.exit(INPUT_ERROR)
 
 # Handle other exceptions
 except Exception as e:
     sys.stderr.write(f"Error: {e}\n")
-    sys.exit(11)
+    sys.exit(INPUT_ERROR)
 
 # Define parsing grammar for Lark parser
 grammar = r"""

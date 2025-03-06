@@ -214,7 +214,7 @@ def format_xml(root_elem: ET.Element) -> str:
     parsed_dom = xml.dom.minidom.parseString(xml_string)
     xml_output = parsed_dom.toprettyxml(indent="  ", encoding="UTF-8").decode("utf-8")
     
-    return xml_output.strip()
+    return xml_output.strip().replace(r"\n", "&#10;")
 
 # Function generating final XML representation of program AST
 def generate_xml(ast: dict, cmt: str) -> ET.Element:
@@ -340,7 +340,10 @@ def generate_argument(parent_elem: ET.Element, arg_node: dict, order: int, param
 
 # Function generating literal element
 def generate_literal(parent_elem: ET.Element, node: dict, parameters: list[str], variables: list[str]):
-    expr_elem = ET.SubElement(parent_elem, "expr")
+    if parent_elem.tag == "expr":
+        expr_elem = parent_elem
+    else:
+        expr_elem = ET.SubElement(parent_elem, "expr")
     
     node_type = node["type"]
     

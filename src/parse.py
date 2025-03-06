@@ -123,10 +123,17 @@ def check_class_redefined(class_id: str):
         sys.exit(OTHER_SEMANTIC_ERROR)
 
 # Function checking for class definition
-def check_class_defined(class_id: str):
+def check_class_defined(class_id: str):    
     if (class_id not in builtins_classes) and (class_id not in user_classes) :
         sys.stderr.write(f"Semantic Error: Class '{class_id}' not defined\n")
         sys.exit(NO_DEFINITION_ERROR)
+
+# Function checking for cyclic class inheritance
+def check_cyclic_inheritance(class_id: str, parent_id: str):
+    if parent_id not in builtins_classes:
+        if user_classes[parent_id] == class_id:
+            sys.stderr.write(f"Semantic Error: Cyclic inheritance between classes '{class_id}' and '{parent_id}'\n")
+            sys.exit(OTHER_SEMANTIC_ERROR)
     
 # Function checking if class is subclass of base class
 def is_subclass(class_id: str, base_class_id: str) -> bool:
@@ -236,8 +243,6 @@ def generate_xml(ast: dict, cmt: str) -> ET.Element:
     classes = ast["program"]
     for cls in classes:
         check_class_redefined(cls["name"])
-        check_class_defined(cls["parent"])
-        
         user_classes[cls["name"]] = cls["parent"]
     
     for cls in classes:
@@ -250,6 +255,9 @@ def generate_xml(ast: dict, cmt: str) -> ET.Element:
 # Function generating class elements
 def generate_class(parent_elem: ET.Element, class_node: dict):
     class_methods = []
+    
+    check_class_defined(class_node["parent"])
+    check_cyclic_inheritance(class_node["name"], class_node["parent"])
     
     class_elem = ET.SubElement(parent_elem, class_node["type"], name=class_node["name"], parent=class_node["parent"])
         

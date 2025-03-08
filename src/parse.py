@@ -130,10 +130,18 @@ def check_class_defined(class_id: str):
 
 # Function checking for cyclic class inheritance
 def check_cyclic_inheritance(class_id: str, parent_id: str):
-    if parent_id not in builtins_classes:
-        if user_classes[parent_id] == class_id:
+    child = class_id
+    while child:
+        parent = user_classes[child]
+        
+        if parent in builtins_classes:
+            parent = None
+        
+        elif parent == class_id:
             sys.stderr.write(f"Semantic Error: Cyclic inheritance between classes '{class_id}' and '{parent_id}'\n")
             sys.exit(OTHER_SEMANTIC_ERROR)
+            
+        child = parent
     
 # Function checking if class is subclass of base class
 def is_subclass(class_id: str, base_class_id: str) -> bool:
@@ -144,18 +152,19 @@ def is_subclass(class_id: str, base_class_id: str) -> bool:
         return True
     
     if class_id in builtins_classes:
-        return (base_class_id == "Object")
+        return base_class_id == "Object"
     
-    while(True):
-        parent_class_id = user_classes[class_id]
+    child = class_id
+    while True:
+        parent = user_classes[child]
         
-        if parent_class_id in builtins_classes:
-            if parent_class_id == base_class_id:
+        if parent in builtins_classes:
+            if parent == base_class_id:
                 return True
             else:
                 return False
         
-        class_id = parent_class_id
+        child = parent
         
 # Function checking for class method message
 def check_class_message(class_id: str, selector: str):

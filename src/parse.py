@@ -9,7 +9,6 @@ from lark import (
     UnexpectedToken, UnexpectedCharacters, UnexpectedEOF,
 )
 import xml.etree.ElementTree as ET
-import xml.dom.minidom
 
 # Constant error codes values
 SUCCESS_EXIT            =   0
@@ -81,8 +80,8 @@ class AST_Transformer(Transformer):
         return {"type": "integer", "value": value}
     
     def string(self, args):
-        value = args[0].value
-        return {"type": "string", "value": value[1:-1]}
+        value = args[0].value[1:-1]
+        return {"type": "string", "value": value}
     
     def var_id(self, args):
         name = args[0].value
@@ -227,7 +226,7 @@ def check_keyword_used(id: str):
 
 # Function searching for first program comment
 def get_first_comment(source_code) -> str | None:
-    match = re.search(r'\"(.*?)\"', source_code)
+    match = re.search(r'\"(.*?)\"', source_code, re.DOTALL)
     
     if match is None:
         return None
@@ -236,11 +235,10 @@ def get_first_comment(source_code) -> str | None:
 
 # Function formating final XML output using 'dom.minidom' module
 def format_xml(root_elem: ET.Element) -> str:
-    xml_string = ET.tostring(root_elem, encoding="utf-8")
-    parsed_dom = xml.dom.minidom.parseString(xml_string)
-    xml_output = parsed_dom.toprettyxml(indent="  ", encoding="UTF-8").decode("utf-8")
+    ET.indent(root_elem)
+    xml_string = ET.tostring(root_elem, encoding="unicode")
     
-    return xml_output.strip().replace(r"\n", "&#10;")
+    return xml_string
 
 # Function generating final XML representation of program AST
 def generate_xml(ast: dict, cmt: str) -> ET.Element:
@@ -394,7 +392,7 @@ def generate_literal(parent_elem: ET.Element, node: dict, parameters: list[str],
     elif node_type == "integer":
         ET.SubElement(expr_elem, "literal", attrib={"class": "Integer", "value": node["value"]})
 
-    elif node_type == "string":
+    elif node_type == "string":  
         ET.SubElement(expr_elem, "literal", attrib={"class": "String", "value": node["value"]})
     
 # Function checking program arguments and printing help message
@@ -461,7 +459,7 @@ ID_COL: /[a-z|_][a-zA-Z0-9_]*:/
 COL_ID: /:[a-z|_][a-zA-Z0-9_]*/
 
 INT: /0|([+-]?[1-9][0-9]*)/
-STR: /'([^'\\]|\\['\\n])*'/
+STR: /'([^'\\\n]|\\['\\n])*'/
 
 COMMENT: /"[^"]*"/
 

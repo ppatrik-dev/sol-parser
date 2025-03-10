@@ -236,7 +236,7 @@ def get_first_comment(source_code) -> str | None:
 # Function formating final XML output using 'dom.minidom' module
 def format_xml(root_elem: ET.Element) -> str:
     ET.indent(root_elem)
-    xml_string = ET.tostring(root_elem, encoding="unicode")
+    xml_string = ET.tostring(root_elem, encoding="UTF-8", xml_declaration=True).decode("UTF-8")
     
     return xml_string
 

@@ -1,3 +1,5 @@
-*
-!/src
-!/src/parse.py
+.pytest_cache
+.vscode
+tests/
+venv
+.python-version

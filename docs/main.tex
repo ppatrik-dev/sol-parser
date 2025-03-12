@@ -1,0 +1,39 @@
+\documentclass[a4paper, 11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[slovak]{babel}
+\usepackage[left=2cm, right=2cm, top=3cm, bottom=3cm]{geometry}
+\usepackage{courier}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage[nopatch=eqnum]{microtype}
+
+\setlength{\parindent}{0pt}
+
+\begin{document}
+ {\parindent 0pt \Large
+Implementačná dokumentácia k 1. úlohe do IPP 2024/2025\newline
+Meno a priezvisko: Patrik Procházka\newline
+Login: \texttt{xprochp00}
+}
+
+\section{Úvod}
+Program \texttt{parse.py} typu filter, načíta vstupný program v jazyku \textsc{SOL25} zo štandardného vstupu a na štandardný výstup vypíše \textsc{XML} reprezentáciu abstraktného syntaktického stromu. V prípade použitia argumentu \texttt{-h/--help} program vypíše krátky popis programu.
+
+\section{Analýza vstupného programu}
+
+\subsection{Lexikálna a syntaktická analýza}
+V rámci lexikálnej a syntaktickej analýzy vstupného programu bola použitá knihovna \texttt{Lark}. Po zadefinovaní gramatiky podľa zadania, vo forme \textsc{ENBF} a následnom volaní funkcie \texttt{parse} prebehne kontrola, ktorej výsledkom je strom použitých \emph{gramatických pravidiel} a \emph{terminálov}. V prípade lexikálnej alebo syntaktickej chyby je odchytená a spracovaná výnimka vyvolaná touto funkciou. Terminály sú definované pomocou \textbf{regulárnych výrazov} a rekurzívne gramatické pravidlá sú zapísané vo forme \textbf{opakovacích pravidiel}, ktoré predchádzajú nežiadúcemu zanorovaniu rekurzívnych pravidel v syntaktickom strome.
+
+\subsection{Abstraktný syntaktický strom}
+Syntaktický strom vytvorený funkciou \texttt{parse} je následne transformovaný na \emph{abstraktný syntaktický strom} štruktúrou podobný formátu \texttt{json} a to využitím triedy \texttt{Transformer} podľa transformačných funkcií definovaných pre gramatické pravidlá.
+
+\subsection{Sémantická analýza}
+Sémantické kontroly sú vykonávané v rámci prechodu cez \textsc{AST}, pred generovaním jednotlivých elementov výslednej \textsc{XML} reprezentácie. Na kontrolu zasielania \textbf{triednych správ} a ich porozumeniu je definovaná funkcia \texttt{check\_class\_message}, ktorá overí, či daný selektor správy patrí medzi triedne metódy. V prípade zaslania triednej správy \texttt{read}, je volaním funkcie \texttt{is\_subclass} overené, že daná trieda je (pod)triedou \texttt{String}, a teda rozumie tejto správe. Medzi ďalšie funkcie, ktoré využívajú slovník \texttt{user\_classes}, do ktorej je pri prvom prechode \textsc{AST} uložená informácia o rodičovskej triede, patrí funkcia s názvom \texttt{check\_cyclic\_inheritance}, ktorá pri definícii triedy, skontroluje potenciálnu \textbf{cyklickú dedičnosť} s jej nadtriedou. Pri väčšine sémantických kontrolách sú využívané definované zoznamy reťazcov, ako napríklad zoznam \emph{kľúčových slov}, \emph{vstavaných tried}, \emph{globálnych objektov} a \emph{pseudopremenných}. 
+
+\section{Generovanie XML}
+Poslednou fázou programu je generovanie \textsc{XML} elementov vužitím knižnice \texttt{xml.etree.ElementTree} Funkcia \texttt{generate\_xml} vytvorí koreňový element \texttt{program} a predá tento rodičovský element funkcii \texttt{generate\_class}, ktorá vytvorí element \texttt{class} a volaním ďalších funkcií sa generujú jednotlivé elementy triedy, týmto spôsobom z \textbf{vrchu nadol} sa vygeneruje celý \textsc{XML} výstup.
+
+Pred vypísaním výstupu je nad \emph{koreňovým elementom} zavolaná funkcia \texttt{format\_xml}, ktorá nastaví odsadenie elementov, kódovanie a pridá hlavičku dokumentu.
+
+\end{document}

@@ -484,7 +484,7 @@ except (UnexpectedToken, UnexpectedEOF) as e:
     sys.stderr.write(f"Syntactic Error: {e}\n")
     sys.exit(SYNTACTIC_ERROR)
 
-# Handle other Lark errors with exit code INTERNAL_ERROR    
+# Handle other Lark errors with exit code 99
 except LarkError as e:
     sys.stderr.write(f"Lark Error: {e}\n")
     sys.exit(INTERNAL_ERROR)
@@ -498,7 +498,3 @@ comment = get_first_comment(input_program)
 # Generating and printing final XML
 xml_root = generate_xml(ast, comment)
 print(format_xml(xml_root))
-
-# import json
-# json_output = json.dumps(ast, indent=4)
-# print(json_output)

@@ -1,0 +1,268 @@
+{
+    "program": [
+        {
+            "type": "class",
+            "name": "Main",
+            "parent": "Object",
+            "body": [
+                {
+                    "type": "method",
+                    "selector": "run",
+                    "block": {
+                        "parameters": [],
+                        "assignments": [
+                            {
+                                "type": "assign",
+                                "var": "x",
+                                "expr": {
+                                    "object": {
+                                        "type": "var",
+                                        "name": "self"
+                                    },
+                                    "message": [
+                                        {
+                                            "type": "param_sel",
+                                            "name": "compute:",
+                                            "arg": {
+                                                "type": "integer",
+                                                "value": "3"
+                                            }
+                                        },
+                                        {
+                                            "type": "param_sel",
+                                            "name": "and:",
+                                            "arg": {
+                                                "type": "integer",
+                                                "value": "2"
+                                            }
+                                        },
+                                        {
+                                            "type": "param_sel",
+                                            "name": "and:",
+                                            "arg": {
+                                                "type": "integer",
+                                                "value": "5"
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "type": "assign",
+                                "var": "x",
+                                "expr": {
+                                    "object": {
+                                        "type": "var",
+                                        "name": "self"
+                                    },
+                                    "message": [
+                                        {
+                                            "type": "param_sel",
+                                            "name": "plusOne:",
+                                            "arg": {
+                                                "type": "nested_expr",
+                                                "expr": {
+                                                    "object": {
+                                                        "type": "var",
+                                                        "name": "self"
+                                                    },
+                                                    "message": [
+                                                        {
+                                                            "type": "no_param_sel",
+                                                            "name": "vysl"
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "type": "assign",
+                                "var": "y",
+                                "expr": {
+                                    "object": {
+                                        "type": "var",
+                                        "name": "x"
+                                    },
+                                    "message": [
+                                        {
+                                            "type": "no_param_sel",
+                                            "name": "asString"
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "method",
+                    "selector": "plusOne:",
+                    "block": {
+                        "parameters": [
+                            "x"
+                        ],
+                        "assignments": [
+                            {
+                                "type": "assign",
+                                "var": "r",
+                                "expr": {
+                                    "object": {
+                                        "type": "var",
+                                        "name": "x"
+                                    },
+                                    "message": [
+                                        {
+                                            "type": "param_sel",
+                                            "name": "plus:",
+                                            "arg": {
+                                                "type": "integer",
+                                                "value": "1"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "method",
+                    "selector": "compute:and:and:",
+                    "block": {
+                        "parameters": [
+                            "x",
+                            "y",
+                            "z"
+                        ],
+                        "assignments": [
+                            {
+                                "type": "assign",
+                                "var": "a",
+                                "expr": {
+                                    "object": {
+                                        "type": "var",
+                                        "name": "x"
+                                    },
+                                    "message": [
+                                        {
+                                            "type": "param_sel",
+                                            "name": "plus:",
+                                            "arg": {
+                                                "type": "var",
+                                                "name": "y"
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "type": "assign",
+                                "var": "_",
+                                "expr": {
+                                    "object": {
+                                        "type": "var",
+                                        "name": "self"
+                                    },
+                                    "message": [
+                                        {
+                                            "type": "param_sel",
+                                            "name": "vysl:",
+                                            "arg": {
+                                                "type": "var",
+                                                "name": "a"
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "type": "assign",
+                                "var": "_",
+                                "expr": {
+                                    "object": {
+                                        "type": "nested_expr",
+                                        "expr": {
+                                            "object": {
+                                                "type": "nested_expr",
+                                                "expr": {
+                                                    "object": {
+                                                        "type": "var",
+                                                        "name": "self"
+                                                    },
+                                                    "message": [
+                                                        {
+                                                            "type": "no_param_sel",
+                                                            "name": "vysl"
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "message": [
+                                                {
+                                                    "type": "param_sel",
+                                                    "name": "greaterThan:",
+                                                    "arg": {
+                                                        "type": "integer",
+                                                        "value": "0"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    "message": [
+                                        {
+                                            "type": "param_sel",
+                                            "name": "ifTrue:",
+                                            "arg": {
+                                                "type": "block_expr",
+                                                "block": {
+                                                    "parameters": [],
+                                                    "assignments": [
+                                                        {
+                                                            "type": "assign",
+                                                            "var": "u",
+                                                            "expr": {
+                                                                "object": {
+                                                                    "type": "var",
+                                                                    "name": "self"
+                                                                },
+                                                                "message": [
+                                                                    {
+                                                                        "type": "param_sel",
+                                                                        "name": "vysl:",
+                                                                        "arg": {
+                                                                            "type": "integer",
+                                                                            "value": "1"
+                                                                        }
+                                                                    }
+                                                                ]
+                                                            }
+                                                        }
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "param_sel",
+                                            "name": "ifFalse:",
+                                            "arg": {
+                                                "type": "block_expr",
+                                                "block": {
+                                                    "parameters": [],
+                                                    "assignments": []
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}

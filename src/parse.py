@@ -115,6 +115,12 @@ pseudo_variables = ["self", "super"]
 # List of user classes
 user_classes = {}
 
+# Function checking for method redefinition
+def check_method_redefined(selector: str, methods: list[str]):
+    if selector in methods:
+        sys.stderr.write(f"Semantic Error: Method '{selector}' redefined\n")
+        sys.exit(OTHER_SEMANTIC_ERROR)
+
 # Function checking for class redefinition
 def check_class_redefined(class_id: str):
     if (class_id in builtins_classes) or (class_id in user_classes):
@@ -261,7 +267,7 @@ def generate_xml(ast: dict, cmt: str) -> ET.Element:
 
 # Function generating class elements
 def generate_class(parent_elem: ET.Element, class_node: dict):
-    class_methods = []
+    instance_methods = []
     
     check_class_defined(class_node["parent"])
     check_cyclic_inheritance(class_node["name"], class_node["parent"])
@@ -270,11 +276,12 @@ def generate_class(parent_elem: ET.Element, class_node: dict):
         
     methods = class_node["body"]
     for mth in methods:
+        check_method_redefined(mth["selector"], instance_methods)
         generate_method(class_elem, mth)
-        class_methods.append(mth["selector"])
+        instance_methods.append(mth["selector"])
         
     if class_node["name"] == "Main":
-        check_run_method_defined(class_methods)
+        check_run_method_defined(instance_methods)
 
 # Function generating method elements
 def generate_method(parent_elem: ET.Element, method_node: dict):

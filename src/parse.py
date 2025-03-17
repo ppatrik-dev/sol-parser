@@ -6,7 +6,7 @@
 import sys, re
 from lark import (
     Lark, LarkError, Transformer,
-    UnexpectedToken, UnexpectedCharacters, UnexpectedEOF,
+    UnexpectedToken, UnexpectedCharacters, UnexpectedEOF
 )
 import xml.etree.ElementTree as ET
 
@@ -313,7 +313,6 @@ def generate_block(parent_elem: ET.Element, block_node: dict):
     assignments = block_node["assignments"]
     for i in range(0, len(assignments)):
         check_parameter_assign(assignments[i]["var"], block_parameters)
-
         generate_assignment(block_elem, assignments[i], i+1, block_parameters, block_variables)
         
 # Function generating parameter elements
@@ -415,7 +414,7 @@ def check_arguments():
     argc = len(sys.argv)
     
     if (argc == 2) and (sys.argv[1] == "--help" or sys.argv[1] == "-h"):
-        sys.stdout.write(help_message)
+        print(help_message)
         sys.exit(SUCCESS_EXIT)
     elif argc > 1:
         sys.stderr.write("Invalid arguments, use --help for usage information\n")
@@ -440,13 +439,10 @@ grammar = r"""
 program: class_def*
 class_def: "class" CID ":" CID "{" method* "}"
 method: selector block
-
 selector: ID | ID_COL+
-
 block: "[" block_par* "|" block_stat* "]"
 block_par: COL_ID -> param
 block_stat: ID ":=" expr "." -> assign
-
 expr: expr_base expr_tail
 expr_tail: no_param_sel
         | param_sel*
@@ -460,14 +456,11 @@ expr_base: "(" expr ")" -> nested_expr
         | STR -> string
 
 CID: /[A-Z][a-zA-Z0-9]*/
-
 ID: /[a-z|_][a-zA-Z0-9_]*/
 ID_COL: /[a-z|_][a-zA-Z0-9_]*:/
 COL_ID: /:[a-z|_][a-zA-Z0-9_]*/
-
 INT: /0|([+-]?[1-9][0-9]*)/
 STR: /'([^'\\\n]|\\['\\n])*'/
-
 COMMENT: /"[^"]*"/
 
 %import common.WS

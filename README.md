@@ -36,9 +36,7 @@ Before generating XML, the script performs semantic checks:
   - Global objects
   - Pseudovariables
 
----
-
-## </> XML Generation
+### </> XML Generation
 
 - Handled using Python’s [`xml.etree.ElementTree`](https://docs.python.org/3/library/xml.etree.elementtree.html).
 - Main functions:

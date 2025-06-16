@@ -1,60 +1,55 @@
-# IPP 2024/2025 - Úloha 1: `parse.py` 
+# IPP Project 1 - SOL25 Parser
 
-## 📌 Popis projektu
+## 📌 Overview
 
-Skript `parse.py` slúži ako **filter**, ktorý číta vstupný program v jazyku **SOL25** zo štandardného vstupu a vypisuje jeho **abstraktný syntaktický strom (AST)** vo forme **XML** na štandardný výstup.
+This project includes the `parse.py` script, which serves as a **parser and XML generator** for the **SOL25** programming language. It reads a program written in SOL25 from standard input, parses it, and outputs an **Abstract Syntax Tree (AST)** in **XML format** to standard output.
 
-Pri spustení s argumentom `-h` alebo `--help` zobrazí stručný popis funkčnosti skriptu.
-
----
-
-## 🧠 Analýza vstupného programu
-
-### Lexikálna a syntaktická analýza
-
-- Použitá knižnica: [`Lark`](https://github.com/lark-parser/lark)
-- Gramatika je definovaná vo forme **ENBF**, pričom `Lark` vykoná parsing cez metódu `parse`.
-- Výstupom je strom obsahujúci gramatické pravidlá a terminály.
-- Lexikálne chyby sú detekované cez regulárne výrazy.
-- Rekurzívne pravidlá sú definované tak, aby minimalizovali nežiadúce zanorenie.
-
-### Abstraktný syntaktický strom (AST)
-
-- Strom z `Lark` je transformovaný na **AST** pomocou triedy `Transformer`.
-- Výsledná štruktúra je podobná **JSON** reprezentácii.
-
-### Sémantická analýza
-
-Prebieha pred samotnou XML serializáciou a zahŕňa:
-
-- Kontrolu zasielania **triednych správ** (`check_class_message`)
-  - Napr. overenie, že `read` je správne volaná na podtriede `String` (`is_subclass`)
-- Detekciu **cyklickej dedičnosti** (`check_cyclic_inheritance`)
-- Overovanie pomocou zoznamov:
-  - kľúčové slová
-  - vstavané triedy
-  - globálne objekty
-  - pseudopremenné
+When run with `-h` or `--help`, the script displays a brief help message describing its functionality.
 
 ---
 
-## </> Generovanie XML
+## 🔍 Functionality
 
-- Implementované pomocou knižnice [`xml.etree.ElementTree`](https://docs.python.org/3/library/xml.etree.elementtree.html)
-- Hlavné funkcie:
-  - `generate_xml` – vytvorí koreňový `<program>` element
-  - `generate_class` – generuje triedy a ich obsah rekurzívne
-- XML výstup je generovaný **zhora nadol**
+### 🧠 Lexical & Syntactic Analysis
 
-### Formátovanie výstupu
+- Utilizes the [`Lark`](https://github.com/lark-parser/lark) parsing library.
+- Grammar is written in **EBNF**.
+- Parsing is performed via Lark’s `parse()` method.
+- Lexical errors are detected using regular expressions.
+- Designed to avoid unnecessary recursive nesting.
 
-Pred výstupom sa aplikuje:
+### 🌲 Abstract Syntax Tree (AST)
 
-- `format_xml` – zabezpečuje odsadenie, kódovanie a hlavičku XML dokumentu
+- The parse tree from `Lark` is transformed into a simplified **AST** using a custom `Transformer` class.
+- The AST structure resembles a **JSON-like tree** for easier processing.
+
+### 💡 Semantic Analysis
+
+Before generating XML, the script performs semantic checks:
+
+- **Class message validation** (`check_class_message`)
+  - Ensures, for example, that methods like `read` are called on appropriate subclasses (e.g., `String`)
+- **Cyclic inheritance detection** (`check_cyclic_inheritance`)
+- Verification using internal lists for:
+  - Reserved keywords
+  - Built-in classes
+  - Global objects
+  - Pseudovariables
 
 ---
 
-## 💡 Spustenie
+## </> XML Generation
+
+- Handled using Python’s [`xml.etree.ElementTree`](https://docs.python.org/3/library/xml.etree.elementtree.html).
+- Main functions:
+  - `generate_xml`: Creates the root `<program>` element
+  - `generate_class`: Recursively builds class and method structures
+  - `format_xml`: Ensures proper indentation, XML declaration header and UTF-8 encoding
+- XML output is structured from **top to bottom**
+
+---
+
+## 🧾 Usage
 
 ```bash
-python3 parse.py < vstup.sol > vystup.xml
+python3 parse.py < input.sol > output.xml
